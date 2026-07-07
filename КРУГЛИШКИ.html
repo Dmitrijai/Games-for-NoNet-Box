@@ -1,0 +1,1677 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-widtgh, initial-scale=1.0">
+    <title>ТРАЛАЛЕ RO ТРАЛАЛА</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        html, body {
+            height: 100%;
+            min-height: 100vh;
+            overflow: auto;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+            color: white;
+            font-family: 'Rubik', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 0px;
+            transition: all 0.3s ease;
+        }
+
+        /* Контейнер игры - УВЕЛИЧЕНА ВЫСОТА */
+        #gameContainer {
+            position: relative;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(200, 10, 0, 0.5);
+            border: 2px solid rgba(255, 230, 109, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        /* Размеры для Windows - УВЕЛИЧЕНА ВЫСОТА */
+        .windows-size {
+            width: 1000px;
+            height: 900px;
+        }
+
+        /* Размеры для Android */
+        .android-size {
+            width: 95vw;
+            height: 120vh;
+            max-width: 500px;
+            max-height: 900px;
+            border-radius: 20px;
+        }
+
+        /* Полноэкранный режим только для телефона */
+        body.fullscreen {
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        body.fullscreen #gameContainer {
+            width: 100vw !important;
+            height: 100vh !important;
+            max-width: none !important;
+            max-height: none !important;
+            border-radius: 0 !important;
+            border: none !important;
+        }
+
+        #gameCanvas {
+            background: linear-gradient(160deg, #0a0a1a 0%, #1a1a2e 100%);
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Интерфейс игры */
+        .ui-panel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(to bottom, rgba(205, 92, 92,0.8) 0%, transparent 100%);
+            display: flex;
+            justify-content: space-between;
+            z-index: 10;
+        }
+
+        .stat {
+            background: rgba(255, 0, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 8px 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            min-width: 80px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: #FFE66D;
+            text-shadow: 0 2px 4px rgba(250,0,0,0.5);
+        }
+
+        .stat-label {
+            font-size: 11px;
+            opacity: 0.8;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Кнопка полноэкранного режима (только для телефона) */
+        .fullscreen-btn {
+            position: absolute;
+            top: 65px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            z-index: 25;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .android .fullscreen-btn {
+            display: flex;
+        }
+
+        .fullscreen-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+
+        /* Экран выбора ОС */
+        #osScreen {
+            position: relative;
+            width: 100%;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            padding: 40px 20px;
+        }
+
+        .os-title {
+            font-size: 56px;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 60px;
+            background: linear-gradient(45deg, #FF6B6B, #FFE66D, #4cc9f0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1.2;
+            padding: 0 20px;
+        }
+
+        .os-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .os-btn {
+            background: linear-gradient(13deg, #4cc9f0, #4361ee);
+            border: none;
+            padding: 25px 35px;
+            border-radius: 20px;
+            font-size: 24px;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            box-shadow: 0 6px 20px rgba(76, 201, 240, 0.3);
+        }
+
+        .os-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(76, 201, 240, 0.4);
+        }
+
+        /* Главное меню - УВЕЛИЧЕНА ВЫСОТА */
+        #mainMenu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(56,26,56,0.95) 0%, rgba(22,33,62,0.95) 100%);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            padding: 40px;
+            overflow-y: auto;
+        }
+
+        /* Название игры для ПК - всегда видно */
+        .game-title {
+            font-size: 42px;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 15px;
+            background: linear-gradient(45deg, #FF6B6B, #FFE66D, #4cc9f0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            line-height: 1.2;
+        }
+
+        .game-subtitle {
+            font-size: 16px;
+            opacity: 0.8;
+            text-align: center;
+            margin-bottom: 25px;
+            max-width: 500px;
+            line-height: 1.4;
+        }
+
+        .menu-btn {
+            background: linear-gradient(135deg, #FF6B6B, #FFE66D);
+            border: none;
+            padding: 18px 25px;
+            border-radius: 20px;
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a1a2e;
+            margin: 12px 0;
+            width: 320px;
+            max-width: 90%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .menu-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255, 107, 107, 0.4);
+        }
+
+        .menu-btn:active {
+            transform: translateY(1px);
+        }
+
+        /* Настройки */
+        .settings-section {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 15px;
+            margin: 15px 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .settings-title {
+            font-size: 18px;
+            margin-bottom: 15px;
+            text-align: center;
+            opacity: 0.9;
+        }
+
+        .settings-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 10px 0;
+        }
+
+        .settings-btn {
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 12px 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            flex-grow: 1;
+            margin-right: 10px;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .settings-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .reset-btn {
+            background: rgba(255, 100, 100, 0.3);
+            border: 2px solid rgba(255, 100, 100, 0.5);
+            padding: 6px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            color: white;
+            font-size: 11px;
+            transition: all 0.3s ease;
+        }
+
+        .reset-btn:hover {
+            background: rgba(255, 100, 100, 0.5);
+        }
+
+        .image-preview-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .image-preview {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        /* Уровни сложности - СИНИЙ ЦВЕТ ДЛЯ АКТИВНОЙ КНОПКИ НА ВСЕХ ПЛАТФОРМАХ */
+        .difficulty-buttons {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin: 10px 0;
+        }
+
+        .android .difficulty-buttons {
+            gap: 5px;
+        }
+
+        .difficulty-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 8px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 12px;
+            flex: 1;
+            text-align: center;
+        }
+
+        .android .difficulty-btn {
+            padding: 6px 8px;
+            font-size: 11px;
+        }
+
+        /* СИНИЙ ЦВЕТ ДЛЯ АКТИВНОЙ КНОПКИ - РАБОТАЕТ НА ВСЕХ ПЛАТФОРМАХ */
+        .difficulty-btn.active {
+            background: linear-gradient(135deg, #4cc9f0, #4361ee);
+            border-color: #4cc9f0;
+            color: white;
+            font-weight: bold;
+        }
+
+        .difficulty-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Скорости персонажей */
+        .speed-settings {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .speed-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 14px;
+        }
+
+        .speed-value {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 4px 8px;
+            border-radius: 6px;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        /* Джойстик - перемещен в центр внизу */
+        #joystick {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 100px;
+            z-index: 10;
+            display: none;
+        }
+
+        .joystick-base {
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .joystick-handle {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #FF6B6B, #FFE66D);
+            border-radius: 50%;
+            border: 3px solid rgba(255, 255, 255, 0.8);
+            transition: transform 0.1s ease;
+        }
+
+        /* Экран окончания */
+        #endScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 30;
+            padding: 40px;
+        }
+
+        /* Уменьшенные надписи победы/поражения */
+        .end-title {
+            font-size: 36px;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .win-title {
+            color: #FFE66D;
+            text-shadow: 0 0 15px rgba(255, 230, 109, 0.7);
+        }
+
+        .lose-title {
+            color: #FF6B6B;
+            text-shadow: 0 0 15px rgba(255, 107, 107, 0.7);
+        }
+
+        .end-message {
+            font-size: 18px;
+            text-align: center;
+            margin-bottom: 35px;
+            opacity: 0.9;
+            line-height: 1.4;
+        }
+
+        /* Анимации */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        /* Адаптивность */
+        @media (max-width: 1200px) {
+            .windows-size {
+                width: 95vw;
+                height: 90vh;
+                max-width: 1100px;
+                max-height: 850px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .os-title { font-size: 42px; margin-bottom: 40px; }
+            .game-title { font-size: 36px; }
+            .menu-btn {
+                width: 300px;
+                padding: 16px 22px;
+                font-size: 16px;
+            }
+            .windows-size {
+                width: 95vw;
+                height: 85vh;
+                max-width: 800px;
+                max-height: 700px;
+            }
+            .android-size {
+                max-width: 450px;
+                max-height: 850px;
+                height: 90vh;
+            }
+            .stat {
+                padding: 6px 10px;
+                min-width: 70px;
+            }
+            .stat-value {
+                font-size: 14px;
+            }
+            .stat-label {
+                font-size: 10px;
+            }
+            .end-title {
+                font-size: 32px;
+            }
+            .end-message {
+                font-size: 16px;
+            }
+            #mainMenu {
+                padding: 30px 20px;
+            }
+            .game-title {
+                font-size: 32px;
+                margin-bottom: 10px;
+            }
+            .game-subtitle {
+                font-size: 14px;
+                margin-bottom: 20px;
+            }
+            .settings-section {
+                padding: 15px;
+                margin: 10px 0;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .os-title { font-size: 36px; margin-bottom: 30px; }
+            .os-btn { padding: 20px 25px; font-size: 20px; }
+            .android-size {
+                max-width: 95vw;
+                max-height: 90vh;
+                height: 90vh;
+            }
+            .stat {
+                min-width: 60px;
+                padding: 5px 8px;
+            }
+            .game-title { font-size: 28px; }
+            .menu-btn {
+                width: 280px;
+                padding: 14px 20px;
+                font-size: 15px;
+            }
+            .settings-section {
+                padding: 12px;
+            }
+            .end-title {
+                font-size: 28px;
+            }
+            .end-message {
+                font-size: 14px;
+            }
+            #mainMenu {
+                padding: 20px 15px;
+            }
+        }
+
+        @media (max-height: 700px) {
+            #mainMenu {
+                padding: 20px;
+                justify-content: flex-start;
+                padding-top: 30px;
+            }
+            .game-title {
+                font-size: 32px;
+                margin-bottom: 10px;
+            }
+            .game-subtitle {
+                font-size: 14px;
+                margin-bottom: 15px;
+            }
+            .menu-btn {
+                margin: 8px 0;
+                padding: 12px 20px;
+            }
+            .settings-section {
+                margin: 8px 0;
+                padding: 15px;
+            }
+        }
+
+        /* Специальные стили для полноэкранного режима на телефоне - ПОДНЯТО ВЫШЕ */
+        body.fullscreen #mainMenu {
+            padding: 60px 30px 30px; /* Увеличили верхний отступ */
+            justify-content: flex-start;
+        }
+
+        body.fullscreen .game-title {
+            font-size: 38px;
+            margin-bottom: 20px;
+        }
+
+        body.fullscreen .game-subtitle {
+            font-size: 16px;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Экран выбора ОС -->
+    <div id="osScreen">
+        <h1 class="os-title">ТРАЛАЛЕ RO ТРАЛАЛА</h1>
+        <div class="os-buttons">
+            <button class="os-btn" onclick="selectOS('windows')">
+                💻 ВЕРСИЯ ДЛЯ WINDOWS
+            </button>
+            <button class="os-btn" onclick="selectOS('android')">
+                📱 ВЕРСИЯ ДЛЯ ANDROID
+            </button>
+        </div>
+    </div>
+
+    <!-- Контейнер игры -->
+    <div id="gameContainer" style="display: none;">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- Кнопка полноэкранного режима (только для телефона) -->
+        <button class="fullscreen-btn" id="fullscreenBtn">⛶</button>
+
+        <!-- Интерфейс игры -->
+        <div class="ui-panel">
+            <div class="stat">
+                <div class="stat-label">Уровень</div>
+                <div class="stat-value" id="levelDisplay">1</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Время</div>
+                <div class="stat-value" id="timeDisplay">30</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Собрано</div>
+                <div class="stat-value" id="scoreDisplay">0/10</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Жизнь</div>
+                <div class="stat-value" id="livesDisplay">❤️</div>
+            </div>
+        </div>
+
+        <!-- Джойстик (только для телефона) -->
+        <div id="joystick">
+            <div class="joystick-base">
+                <div class="joystick-handle" id="joystickHandle"></div>
+            </div>
+        </div>
+
+        <!-- Главное меню -->
+        <div id="mainMenu">
+            <!-- Название игры теперь всегда видно в меню на всех платформах -->
+            <h1 class="game-title">ТРАЛАЛЕ RO ТРАЛАЛА</h1>
+            <p class="game-subtitle">Беги от Тунг Тунг Сахура и спасай сахурчиков!</p>
+
+            <div class="settings-section">
+                <div class="settings-title">🎯 Уровень сложности</div>
+                <div class="difficulty-buttons" id="difficultyButtons">
+                    <button class="difficulty-btn active" data-level="1">Лёгкий</button>
+                    <button class="difficulty-btn" data-level="2">Средний</button>
+                    <button class="difficulty-btn" data-level="3">Сложный</button>
+                </div>
+
+                <div class="speed-settings">
+                    <div class="speed-item">
+                        <span>Скорость Тралале:</span>
+                        <span class="speed-value" id="playerSpeedDisplay">5</span>
+                    </div>
+                    <div class="speed-item">
+                        <span>Скорость Тунг Тунг:</span>
+                        <span class="speed-value" id="enemySpeedDisplay">3</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-title">🎨 Настройки персонажей</div>
+
+                <div class="settings-row">
+                    <button class="settings-btn" onclick="document.getElementById('playerUpload').click()">
+                        👤 Тралале ро тралала
+                    </button>
+                    <div class="image-preview-container">
+                        <img id="playerPreview" class="image-preview">
+                        <button class="reset-btn" onclick="resetImage('player')">✕</button>
+                    </div>
+                </div>
+
+                <div class="settings-row">
+                    <button class="settings-btn" onclick="document.getElementById('enemyUpload').click()">
+                        👹 Тунг тунг сахур
+                    </button>
+                    <div class="image-preview-container">
+                        <img id="enemyPreview" class="image-preview">
+                        <button class="reset-btn" onclick="resetImage('enemy')">✕</button>
+                    </div>
+                </div>
+
+                <div class="settings-row">
+                    <button class="settings-btn" onclick="document.getElementById('bossUpload').click()">
+                        👑 Босс
+                    </button>
+                    <div class="image-preview-container">
+                        <img id="bossPreview" class="image-preview">
+                        <button class="reset-btn" onclick="resetImage('boss')">✕</button>
+                    </div>
+                </div>
+
+                <div class="settings-row">
+                    <button class="settings-btn" onclick="document.getElementById('itemUpload').click()">
+                        🎯 Сахурчики
+                    </button>
+                    <div class="image-preview-container">
+                        <img id="itemPreview" class="image-preview">
+                        <button class="reset-btn" onclick="resetImage('item')">✕</button>
+                    </div>
+                </div>
+
+                <input type="file" id="playerUpload" accept="image/*" style="display:none">
+                <input type="file" id="enemyUpload" accept="image/*" style="display:none">
+                <input type="file" id="bossUpload" accept="image/*" style="display:none">
+                <input type="file" id="itemUpload" accept="image/*" style="display:none">
+            </div>
+
+            <button class="menu-btn pulse" id="startBtn">
+                🚀 НАЧАТЬ ИГРУ
+            </button>
+
+            <button class="menu-btn" id="musicBtn">
+                🎵 ВКЛЮЧИТЬ МУЗЫКУ
+            </button>
+        </div>
+
+        <!-- Экран окончания -->
+        <div id="endScreen">
+            <h1 class="end-title" id="endTitle">РЕЗУЛЬТАТ</h1>
+            <p class="end-message" id="endMessage"></p>
+            <button class="menu-btn" id="restartBtn">🔄 ИГРАТЬ СНОВА</button>
+            <button class="menu-btn" id="menuBtn">📋 В МЕНЮ</button>
+        </div>
+    </div>
+
+    <!-- Аудио элементы с работающей музыкой -->
+    <!--
+        ЗАМЕНИТЕ ССЫЛКИ НА СВОИ МУЗЫКАЛЬНЫЕ ФАЙЛЫ:
+        1. backgroundMusic - музыка в меню
+        2. gameMusic - музыка во время игры
+        3. collectSound - звук сбора предмета
+        4. winSound - звук победы
+        5. loseSound - звук поражения
+        6. bossSound - звук столкновения с врагом
+    -->
+    <audio id="backgroundMusic" loop>
+        <source src="https://www.myinstants.com/media/sounds/tun-ti-tun-natural-albertovich.mp3">
+        <!-- Замените ссылку выше на свою музыку для меню -->
+    </audio>
+    <audio id="gameMusic" loop>
+        <source src="https://www.myinstants.com/media/sounds/tralalero-tralala-meme_R8mqoQo.mp3" type="audio/mpeg">
+        <!-- Замените ссылку выше на свою музыку для игры -->
+    </audio>
+    <audio id="collectSound">
+        <source src="https://soundbible.com/grab.php?id=2067&type=mp3" type="audio/mpeg">
+        <!-- Замените ссылку выше на свой звук сбора -->
+    </audio>
+    <audio id="winSound">
+        <source src="https://www.myinstants.com/media/sounds/brawl-stars-win-winning-sounds-sound-effect-brawl-stars-hd-sound-effects.mp3" type="audio/mpeg">
+        <!-- Замените ссылку выше на свой звук победы -->
+    </audio>
+    <audio id="loseSound">
+        <source src="https://www.myinstants.com/media/sounds/gameover_1.mp3" type="audio/mpeg">
+        <!-- Замените ссылку выше на свой звук поражения -->
+    </audio>
+    <audio id="bossSound">
+        <source src="" type="audio/mpeg">
+        <!-- Замените ссылку выше на свой звук столкновения -->
+    </audio>
+
+    <script>
+        // Основные переменные
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let gameActive = false;
+        let currentPlatform = null;
+        let musicEnabled = true; // Музыка включена по умолчанию
+        let currentLevel = 1;
+        let difficulty = 1;
+
+        // Изображения по умолчанию
+        let playerImage = null;
+        let enemyImage = null;
+        let itemImage = null;
+        let bossImage = null;
+
+        // Оригинальные изображения (для сброса)
+        let originalPlayerImage = null;
+        let originalEnemyImage = null;
+        let originalItemImage = null;
+        let originalBossImage = null;
+
+        // Игровые переменные
+        let player = { x: 100, y: 300, width: 60, height: 60, speed: 5 };
+        let enemy = { x: 600, y: 300, width: 70, height: 70, speed: 3 };
+        let boss = { x: 400, y: 150, width: 90, height: 90, speed: 2, active: false };
+        let items = [];
+        let particles = [];
+        let score = 0;
+        let timeLeft = 30;
+        let lives = 1;
+        let targetScore = 10;
+
+        // Координаты мыши для ПК
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetX = 0;
+        let targetY = 0;
+
+        // Уровни сложности с настраиваемыми скоростями
+        const levels = {
+            1: {
+                enemySpeed: 3,
+                playerSpeed: 6,
+                targetScore: 10,
+                time: 30,
+                bossActive: false
+            },
+            2: {
+                enemySpeed: 4,
+                playerSpeed: 7,
+                targetScore: 15,
+                time: 25,
+                bossActive: true
+            },
+            3: {
+                enemySpeed: 5,
+                playerSpeed: 8,
+                targetScore: 20,
+                time: 20,
+                bossActive: true
+            }
+        };
+
+        // Джойстик
+        let joystickActive = false;
+        let joystickPower = 0;
+        let joystickAngle = 0;
+
+        // Переменные для плавного движения
+        let playerVelocityX = 0;
+        let playerVelocityY = 0;
+        const smoothingFactor = 0.1;
+        const stoppingThreshold = 1;
+
+        // Выбор ОС
+        function selectOS(platform) {
+            currentPlatform = platform;
+            console.log(`🎮 Выбрана платформа: ${platform}`);
+
+            // Настраиваем размеры контейнера
+            const gameContainer = document.getElementById('gameContainer');
+            const osScreen = document.getElementById('osScreen');
+
+            if (platform === 'windows') {
+                gameContainer.className = 'windows-size';
+                document.body.style.background = 'linear-gradient(135deg, #1a1a2e, #16213e)';
+                document.body.classList.remove('android');
+            } else {
+                gameContainer.className = 'android-size';
+                document.body.classList.add('android');
+                document.body.style.background = '#0a0a1a';
+            }
+
+            // Показываем игровой контейнер и меню
+            osScreen.style.display = 'none';
+            gameContainer.style.display = 'block';
+            document.getElementById('mainMenu').style.display = 'flex';
+
+            // Автоматически включаем музыку при выборе ОС
+            if (musicEnabled) {
+                playBackgroundMusic();
+                document.getElementById('musicBtn').innerHTML = '🎵 ВЫКЛЮЧИТЬ МУЗЫКУ';
+            }
+
+            // Инициализируем игру после выбора ОС
+            initGame();
+        }
+
+        // Инициализация игры
+        function initGame() {
+            console.log("🎮 Инициализация игры...");
+
+            // Устанавливаем размеры canvas в зависимости от платформы
+            const gameContainer = document.getElementById('gameContainer');
+            canvas.width = gameContainer.clientWidth;
+            canvas.height = gameContainer.clientHeight;
+
+            // Создаем изображения по умолчанию
+            createDefaultImages();
+
+            // Сохраняем оригинальные изображения для сброса
+            saveOriginalImages();
+
+            // Назначаем обработчики событий
+            setupEventListeners();
+
+            // Обновляем отображение скоростей
+            updateSpeedDisplay();
+
+            // Запускаем игровой цикл
+            requestAnimationFrame(gameLoop);
+
+            console.log("✅ Игра готова к запуску");
+        }
+
+        // Создание изображений по умолчанию с круглой формой
+        function createDefaultImages() {
+            // Создаем canvas для генерации изображений
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 120;
+            tempCanvas.height = 120;
+            const tempCtx = tempCanvas.getContext('2d');
+
+            // Игрок - круглый
+            tempCtx.fillStyle = '#FFE66D';
+            tempCtx.beginPath();
+            tempCtx.arc(60, 60, 50, 0, Math.PI * 2);
+            tempCtx.fill();
+            tempCtx.fillStyle = 'black';
+            tempCtx.font = 'bold 50px Arial';
+            tempCtx.textAlign = 'center';
+            tempCtx.textBaseline = 'middle';
+            tempCtx.fillText('😊', 60, 65);
+            playerImage = new Image();
+            playerImage.src = tempCanvas.toDataURL();
+
+            // Враг - круглый
+            tempCtx.fillStyle = '#4cc9f0';
+            tempCtx.beginPath();
+            tempCtx.arc(60, 60, 50, 0, Math.PI * 2);
+            tempCtx.fill();
+            tempCtx.fillStyle = 'black';
+            tempCtx.font = 'bold 50px Arial';
+            tempCtx.fillText('👹', 60, 65);
+            enemyImage = new Image();
+            enemyImage.src = tempCanvas.toDataURL();
+
+            // Предмет - круглый
+            tempCanvas.width = 80;
+            tempCanvas.height = 80;
+            tempCtx.fillStyle = '#FF6B6B';
+            tempCtx.beginPath();
+            tempCtx.arc(40, 40, 35, 0, Math.PI * 2);
+            tempCtx.fill();
+            tempCtx.fillStyle = 'white';
+            tempCtx.font = 'bold 40px Arial';
+            tempCtx.textAlign = 'center';
+            tempCtx.textBaseline = 'middle';
+            tempCtx.fillText('⭐', 40, 45);
+            itemImage = new Image();
+            itemImage.src = tempCanvas.toDataURL();
+
+            // Босс - круглый
+            tempCanvas.width = 140;
+            tempCanvas.height = 140;
+            tempCtx.fillStyle = '#9d4edd';
+            tempCtx.beginPath();
+            tempCtx.arc(70, 70, 60, 0, Math.PI * 2);
+            tempCtx.fill();
+            tempCtx.fillStyle = 'white';
+            tempCtx.font = 'bold 60px Arial';
+            tempCtx.textAlign = 'center';
+            tempCtx.textBaseline = 'middle';
+            tempCtx.fillText('👑', 70, 75);
+            bossImage = new Image();
+            bossImage.src = tempCanvas.toDataURL();
+
+            // Устанавливаем preview
+            document.getElementById('playerPreview').src = playerImage.src;
+            document.getElementById('enemyPreview').src = enemyImage.src;
+            document.getElementById('bossPreview').src = bossImage.src;
+            document.getElementById('itemPreview').src = itemImage.src;
+        }
+
+        // Сохраняем оригинальные изображения для сброса
+        function saveOriginalImages() {
+            originalPlayerImage = playerImage;
+            originalEnemyImage = enemyImage;
+            originalBossImage = bossImage;
+            originalItemImage = itemImage;
+        }
+
+        // Сброс изображения к оригиналу
+        function resetImage(type) {
+            switch(type) {
+                case 'player':
+                    playerImage = originalPlayerImage;
+                    document.getElementById('playerPreview').src = playerImage.src;
+                    break;
+                case 'enemy':
+                    enemyImage = originalEnemyImage;
+                    document.getElementById('enemyPreview').src = enemyImage.src;
+                    break;
+                case 'boss':
+                    bossImage = originalBossImage;
+                    document.getElementById('bossPreview').src = bossImage.src;
+                    break;
+                case 'item':
+                    itemImage = originalItemImage;
+                    document.getElementById('itemPreview').src = itemImage.src;
+                    break;
+            }
+            console.log(`🔄 Изображение сброшено: ${type}`);
+        }
+
+        function setupEventListeners() {
+            console.log("⚙️ Настройка обработчиков событий");
+
+            // Кнопки меню
+            document.getElementById('startBtn').addEventListener('click', startGame);
+            document.getElementById('restartBtn').addEventListener('click', restartGame);
+            document.getElementById('menuBtn').addEventListener('click', showMenu);
+            document.getElementById('musicBtn').addEventListener('click', toggleMusic);
+            document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+
+            // Уровни сложности - УЛУЧШЕННАЯ ЛОГИКА ВЫБОРА ДЛЯ ВСЕХ ПЛАТФОРМ
+            document.querySelectorAll('.difficulty-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    // Убираем активный класс у всех кнопок
+                    document.querySelectorAll('.difficulty-btn').forEach(b => {
+                        b.classList.remove('active');
+                    });
+
+                    // Добавляем активный класс к выбранной кнопке
+                    this.classList.add('active');
+                    difficulty = parseInt(this.dataset.level);
+                    updateSpeedDisplay();
+                    console.log(`🎯 Выбран уровень сложности: ${difficulty}`);
+                });
+            });
+
+            // Загрузка изображений с округлением
+            document.getElementById('playerUpload').addEventListener('change', (e) => loadImage(e, 'player'));
+            document.getElementById('enemyUpload').addEventListener('change', (e) => loadImage(e, 'enemy'));
+            document.getElementById('bossUpload').addEventListener('change', (e) => loadImage(e, 'boss'));
+            document.getElementById('itemUpload').addEventListener('change', (e) => loadImage(e, 'item'));
+
+            // Управление для Windows
+            canvas.addEventListener('mousemove', (e) => {
+                if (gameActive && currentPlatform === 'windows') {
+                    const rect = canvas.getBoundingClientRect();
+                    targetX = e.clientX - rect.left;
+                    targetY = e.clientY - rect.top;
+                }
+            });
+
+            // Джойстик для Android
+            const joystickElem = document.getElementById('joystick');
+
+            joystickElem.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (!gameActive || currentPlatform !== 'android') return;
+                joystickActive = true;
+                updateJoystick(e.touches[0]);
+            });
+
+            document.addEventListener('touchmove', (e) => {
+                if (joystickActive && currentPlatform === 'android') {
+                    e.preventDefault();
+                    updateJoystick(e.touches[0]);
+                }
+            });
+
+            document.addEventListener('touchend', () => {
+                if (currentPlatform === 'android') {
+                    joystickActive = false;
+                    resetJoystick();
+                }
+            });
+
+            // Обработка изменения ориентации экрана
+            window.addEventListener('orientationchange', function() {
+                // Перезапускаем игру при смене ориентации
+                if (gameActive) {
+                    setTimeout(() => {
+                        const gameContainer = document.getElementById('gameContainer');
+                        canvas.width = gameContainer.clientWidth;
+                        canvas.height = gameContainer.clientHeight;
+                        // Пересоздаем предметы для нового размера экрана
+                        createItems();
+                    }, 300);
+                }
+            });
+
+            // Обработка выхода из полноэкранного режима
+            document.addEventListener('fullscreenchange', function() {
+                if (!document.fullscreenElement) {
+                    document.body.classList.remove('fullscreen');
+                    document.getElementById('fullscreenBtn').textContent = '⛶';
+                } else {
+                    document.getElementById('fullscreenBtn').textContent = '⛿';
+                }
+            });
+        }
+
+        // Переключение полноэкранного режима (только для телефона)
+        function toggleFullscreen() {
+            if (currentPlatform !== 'android') return;
+
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log(`Ошибка при включении полноэкранного режима: ${err.message}`);
+                });
+                document.body.classList.add('fullscreen');
+                document.getElementById('fullscreenBtn').textContent = '⛿';
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                    document.body.classList.remove('fullscreen');
+                    document.getElementById('fullscreenBtn').textContent = '⛶';
+                }
+            }
+        }
+
+        function updateSpeedDisplay() {
+            const levelConfig = levels[difficulty];
+            document.getElementById('playerSpeedDisplay').textContent = levelConfig.playerSpeed;
+            document.getElementById('enemySpeedDisplay').textContent = levelConfig.enemySpeed;
+        }
+
+        // Функция для загрузки изображений с округлением
+        function loadImage(event, type) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    // Создаем круглое изображение
+                    const canvas = document.createElement('canvas');
+                    let size = 120; // Размер для персонажей
+                    if (type === 'item') size = 80; // Размер для предметов
+                    if (type === 'boss') size = 140; // Размер для босса
+
+                    canvas.width = size;
+                    canvas.height = size;
+                    const ctx = canvas.getContext('2d');
+
+                    // Создаем круглую маску
+                    ctx.beginPath();
+                    ctx.arc(size/2, size/2, size/2 - 5, 0, Math.PI * 2);
+                    ctx.closePath();
+                    ctx.clip();
+
+                    // Рисуем изображение внутри круга
+                    ctx.drawImage(img, 0, 0, size, size);
+
+                    // Создаем новое изображение из canvas
+                    const roundedImg = new Image();
+                    roundedImg.onload = function() {
+                        switch(type) {
+                            case 'player':
+                                playerImage = roundedImg;
+                                document.getElementById('playerPreview').src = canvas.toDataURL();
+                                break;
+                            case 'enemy':
+                                enemyImage = roundedImg;
+                                document.getElementById('enemyPreview').src = canvas.toDataURL();
+                                break;
+                            case 'boss':
+                                bossImage = roundedImg;
+                                document.getElementById('bossPreview').src = canvas.toDataURL();
+                                break;
+                            case 'item':
+                                itemImage = roundedImg;
+                                document.getElementById('itemPreview').src = canvas.toDataURL();
+                                break;
+                        }
+                        console.log(`✅ Изображение загружено: ${type}`);
+                    };
+                    roundedImg.src = canvas.toDataURL();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function updateJoystick(input) {
+            const joystick = document.getElementById('joystick');
+            const rect = joystick.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            const deltaX = input.clientX - centerX;
+            const deltaY = input.clientY - centerY;
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+            const maxDistance = 30;
+            const limitedDistance = Math.min(distance, maxDistance);
+
+            joystickAngle = Math.atan2(deltaY, deltaX);
+            joystickPower = limitedDistance / maxDistance;
+
+            // Двигаем ручку джойстика
+            const handleX = Math.cos(joystickAngle) * limitedDistance;
+            const handleY = Math.sin(joystickAngle) * limitedDistance;
+            document.getElementById('joystickHandle').style.transform = `translate(${handleX}px, ${handleY}px)`;
+        }
+
+        function resetJoystick() {
+            joystickPower = 0;
+            document.getElementById('joystickHandle').style.transform = 'translate(0, 0)';
+        }
+
+        function startGame() {
+            console.log(`🚀 Запуск игры для: ${currentPlatform}, уровень сложности: ${difficulty}`);
+
+            gameActive = true;
+            currentLevel = difficulty;
+
+            // Настройка уровня с новыми скоростями
+            const levelConfig = levels[difficulty];
+            enemy.speed = levelConfig.enemySpeed;
+            player.speed = levelConfig.playerSpeed;
+            targetScore = levelConfig.targetScore;
+            timeLeft = levelConfig.time;
+            lives = 1;
+            boss.active = levelConfig.bossActive;
+
+            // Сброс счета
+            score = 0;
+
+            // Настройка платформы
+            if (currentPlatform === 'android') {
+                document.getElementById('joystick').style.display = 'block';
+            } else {
+                document.getElementById('joystick').style.display = 'none';
+                // Устанавливаем начальную позицию игрока для ПК
+                player.x = canvas.width * 0.2;
+                player.y = canvas.height * 0.5;
+                targetX = player.x;
+                targetY = player.y;
+                playerVelocityX = 0;
+                playerVelocityY = 0;
+            }
+
+            // Позиции персонажей
+            player.x = canvas.width * 0.2;
+            player.y = canvas.height * 0.5;
+            enemy.x = canvas.width * 0.8;
+            enemy.y = canvas.height * 0.5;
+            boss.x = canvas.width * 0.5;
+            boss.y = canvas.height * 0.2;
+
+            // Создаем предметы
+            createItems();
+
+            // Включаем музыку игры
+            if (musicEnabled) {
+                playGameMusic();
+            }
+
+            // Показываем игровое поле
+            document.getElementById('mainMenu').style.display = 'none';
+            document.getElementById('endScreen').style.display = 'none';
+
+            updateUI();
+        }
+
+        function playBackgroundMusic() {
+            const music = document.getElementById('backgroundMusic');
+            const gameMusic = document.getElementById('gameMusic');
+
+            // Останавливаем игровую музыку
+            gameMusic.pause();
+
+            music.volume = 0.4;
+            music.currentTime = 0;
+
+            // Гарантированное воспроизведение музыки
+            const playPromise = music.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.log("🔇 Автозапуск музыки заблокирован, требуется клик");
+                });
+            }
+        }
+
+        function playGameMusic() {
+            const music = document.getElementById('backgroundMusic');
+            const gameMusic = document.getElementById('gameMusic');
+
+            // Останавливаем фоновую музыку
+            music.pause();
+
+            gameMusic.volume = 0.3;
+            gameMusic.currentTime = 0;
+
+            // Гарантированное воспроизведение музыки
+            const playPromise = gameMusic.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.log("🔇 Автозапуск музыки заблокирован, требуется клик");
+                });
+            }
+        }
+
+        function createItems() {
+            items = [];
+            const count = 15 + (difficulty * 5);
+            for (let i = 0; i < count; i++) {
+                items.push({
+                    x: Math.random() * (canvas.width - 40) + 20,
+                    y: Math.random() * (canvas.height - 40) + 20,
+                    width: 40,
+                    height: 40,
+                    collected: false
+                });
+            }
+            particles = [];
+        }
+
+        function gameLoop() {
+            if (gameActive) {
+                update();
+                render();
+            }
+            requestAnimationFrame(gameLoop);
+        }
+
+        function update() {
+            // Движение игрока для Windows
+            if (currentPlatform === 'windows' && gameActive) {
+                const dx = targetX - player.x;
+                const dy = targetY - player.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                // Если персонаж близко к цели, останавливаем его точно на цели
+                if (distance < stoppingThreshold) {
+                    player.x = targetX;
+                    player.y = targetY;
+                    playerVelocityX = 0;
+                    playerVelocityY = 0;
+                } else {
+                    // Плавное движение с инерцией
+                    playerVelocityX = dx * smoothingFactor;
+                    playerVelocityY = dy * smoothingFactor;
+
+                    // Ограничиваем максимальную скорость
+                    const maxSpeed = player.speed;
+                    const currentSpeed = Math.sqrt(playerVelocityX * playerVelocityX + playerVelocityY * playerVelocityY);
+                    if (currentSpeed > maxSpeed) {
+                        playerVelocityX = (playerVelocityX / currentSpeed) * maxSpeed;
+                        playerVelocityY = (playerVelocityY / currentSpeed) * maxSpeed;
+                    }
+
+                    // Применяем скорость с ограничением
+                    let newX = player.x + playerVelocityX;
+                    let newY = player.y + playerVelocityY;
+
+                    // Проверяем границы и корректируем движение
+                    let canMoveX = true;
+                    let canMoveY = true;
+
+                    if (newX < player.width/2) {
+                        newX = player.width/2;
+                        canMoveX = false;
+                    } else if (newX > canvas.width - player.width/2) {
+                        newX = canvas.width - player.width/2;
+                        canMoveX = false;
+                    }
+
+                    if (newY < player.height/2) {
+                        newY = player.height/2;
+                        canMoveY = false;
+                    } else if (newY > canvas.height - player.height/2) {
+                        newY = canvas.height - player.height/2;
+                        canMoveY = false;
+                    }
+
+                    // Применяем движение
+                    player.x = newX;
+                    player.y = newY;
+                }
+            }
+
+            // Движение игрока через джойстик (для Android)
+            if (currentPlatform === 'android' && joystickActive && joystickPower > 0) {
+                player.x += Math.cos(joystickAngle) * player.speed * joystickPower;
+                player.y += Math.sin(joystickAngle) * player.speed * joystickPower;
+
+                // Границы для Android
+                player.x = Math.max(player.width/2, Math.min(canvas.width - player.width/2, player.x));
+                player.y = Math.max(player.height/2, Math.min(canvas.height - player.height/2, player.y));
+            }
+
+            // Движение врага к игроку
+            const dx = player.x - enemy.x;
+            const dy = player.y - enemy.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance > 0) {
+                enemy.x += (dx / distance) * enemy.speed;
+                enemy.y += (dy / distance) * enemy.speed;
+            }
+
+            // Движение босса
+            if (boss.active) {
+                const bossDx = player.x - boss.x;
+                const bossDy = player.y - boss.y;
+                const bossDistance = Math.sqrt(bossDx * bossDx + bossDy * bossDy);
+
+                if (bossDistance > 0) {
+                    boss.x += (bossDx / bossDistance) * boss.speed;
+                    boss.y += (bossDy / bossDistance) * boss.speed;
+                }
+
+                if (bossDistance < (player.width + boss.width) / 2.5) {
+                    handleCollision();
+                }
+            }
+
+            // Проверка столкновения с врагом
+            if (distance < (player.width + enemy.width) / 2.5) {
+                handleCollision();
+            }
+
+            // Сбор сахурчиков
+            items.forEach((item) => {
+                if (!item.collected) {
+                    const dx = player.x - item.x;
+                    const dy = player.y - item.y;
+                    const itemDistance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (itemDistance < (player.width + item.width) / 2.5) {
+                        item.collected = true;
+                        score++;
+                        playSound('collect');
+                        createParticles(item.x, item.y);
+
+                        if (score >= targetScore) {
+                            playSound('win');
+                            endGame(true);
+                            return;
+                        }
+                    }
+                }
+            });
+
+            // Обновление времени
+            timeLeft -= 1/60;
+            if (timeLeft <= 0) {
+                playSound('lose');
+                endGame(false);
+                return;
+            }
+
+            updateUI();
+
+            // Обновление частиц
+            particles.forEach((particle, index) => {
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+                particle.life -= 0.02;
+                if (particle.life <= 0) particles.splice(index, 1);
+            });
+        }
+
+        function handleCollision() {
+            lives--;
+            playSound('boss');
+            updateUI();
+
+            // Возвращаем игрока на старт
+            player.x = canvas.width * 0.2;
+            player.y = canvas.height * 0.5;
+            targetX = player.x;
+            targetY = player.y;
+            playerVelocityX = 0;
+            playerVelocityY = 0;
+
+            if (lives <= 0) {
+                playSound('lose');
+                endGame(false);
+            }
+        }
+
+        function playSound(type) {
+            if (!musicEnabled && type !== 'backgroundMusic' && type !== 'gameMusic') return;
+
+            try {
+                const sound = document.getElementById(type + 'Sound');
+                if (sound) {
+                    sound.volume = (type === 'backgroundMusic' || type === 'gameMusic') ? 0.3 : 0.7;
+                    sound.currentTime = 0;
+                    const playPromise = sound.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch(e => {
+                            console.log("🔇 Звук не может быть воспроизведен");
+                        });
+                    }
+                }
+            } catch (e) {
+                console.log("🔇 Ошибка воспроизведения звука");
+            }
+        }
+
+        function createParticles(x, y) {
+            for (let i = 0; i < 8; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    radius: Math.random() * 4 + 2,
+                    color: '#FF6B6B',
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: (Math.random() - 0.5) * 6,
+                    life: 1.0
+                });
+            }
+        }
+
+        function render() {
+            // Фон
+            ctx.fillStyle = '#0a0a1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Градиентный фон
+            const gradient = ctx.createRadialGradient(
+                canvas.width/2, canvas.height/2, 0,
+                canvas.width/2, canvas.height/2, Math.max(canvas.width, canvas.height)/2
+            );
+            gradient.addColorStop(0, 'rgba(26, 26, 46, 0.8)');
+            gradient.addColorStop(1, 'rgba(10, 10, 26, 0.9)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Сахурчики
+            items.forEach(item => {
+                if (!item.collected && itemImage) {
+                    ctx.drawImage(itemImage, item.x - item.width/2, item.y - item.height/2, item.width, item.height);
+                }
+            });
+
+            // Частицы
+            particles.forEach(particle => {
+                ctx.globalAlpha = particle.life;
+                ctx.fillStyle = particle.color;
+                ctx.beginPath();
+                ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+            });
+
+            // Босс
+            if (boss.active && bossImage) {
+                ctx.drawImage(bossImage, boss.x - boss.width/2, boss.y - boss.height/2, boss.width, boss.height);
+            }
+
+            // Враг
+            if (enemyImage) {
+                ctx.drawImage(enemyImage, enemy.x - enemy.width/2, enemy.y - enemy.height/2, enemy.width, enemy.height);
+            }
+
+            // Игрок
+            if (playerImage) {
+                ctx.drawImage(playerImage, player.x - player.width/2, player.y - player.height/2, player.width, player.height);
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('levelDisplay').textContent = currentLevel;
+            document.getElementById('timeDisplay').textContent = Math.ceil(timeLeft);
+            document.getElementById('scoreDisplay').textContent = `${score}/${targetScore}`;
+            document.getElementById('livesDisplay').textContent = lives > 0 ? '❤️' : '💀';
+        }
+
+        function endGame(isWin) {
+            gameActive = false;
+            // Останавливаем музыку игры
+            document.getElementById('gameMusic').pause();
+
+            // Включаем фоновую музыку
+            if (musicEnabled) {
+                playBackgroundMusic();
+            }
+
+            const endScreen = document.getElementById('endScreen');
+            endScreen.style.display = 'flex';
+            document.getElementById('joystick').style.display = 'none';
+
+            if (isWin) {
+                document.getElementById('endTitle').textContent = '🎉 ПОБЕДА!';
+                document.getElementById('endTitle').className = 'end-title win-title';
+                document.getElementById('endMessage').textContent = `Тралале ро тралала спас ${score} сахурчиков!`;
+            } else {
+                document.getElementById('endTitle').textContent = '💀 ПОРАЖЕНИЕ';
+                document.getElementById('endTitle').className = 'end-title lose-title';
+                document.getElementById('endMessage').textContent = `Тунг тунг сахур съел тралале ро тралала!`;
+            }
+        }
+
+        function restartGame() {
+            startGame();
+        }
+
+        function showMenu() {
+            gameActive = false;
+            // Останавливаем музыку игры
+            document.getElementById('gameMusic').pause();
+
+            // Включаем фоновую музыку
+            if (musicEnabled) {
+                playBackgroundMusic();
+            }
+
+            document.getElementById('mainMenu').style.display = 'flex';
+            document.getElementById('endScreen').style.display = 'none';
+        }
+
+        function toggleMusic() {
+            const btn = document.getElementById('musicBtn');
+
+            if (musicEnabled) {
+                // Выключаем музыку
+                document.getElementById('backgroundMusic').pause();
+                document.getElementById('gameMusic').pause();
+                btn.innerHTML = '🎵 ВКЛЮЧИТЬ МУЗЫКУ';
+                musicEnabled = false;
+            } else {
+                // Включаем музыку
+                if (gameActive) {
+                    playGameMusic();
+                } else {
+                    playBackgroundMusic();
+                }
+                btn.innerHTML = '🎵 ВЫКЛЮЧИТЬ МУЗЫКУ';
+                musicEnabled = true;
+            }
+        }
+    </script>
+</body>
+</html>
