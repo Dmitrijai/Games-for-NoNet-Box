@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pac-Man: Pro Edition</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&family=JetBrains+Mono:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f1115;
+            --surface-color: #1a1d24;
+            --border-color: #2a2e39;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            
+            --accent-primary: #fbbf24;
+            --accent-secondary: #3b82f6;
+            --accent-danger: #ef4444;
+            
+            --wall-color: #1e3a8a;
+            --wall-stroke: #3b82f6;
+            --dot-color: #f3f4f6;
+            
+            --radius-md: 12px;
+            --radius-lg: 20px;
+            --radius-pill: 50px;
+        }
+
+        body.theme-classic {
+            --wall-color: #1e3a8a; --wall-stroke: #3b82f6;
+        }
+        body.theme-midnight {
+            --bg-color: #050b14; --surface-color: #0a1321; --border-color: #1a2c47;
+            --wall-color: #0891b2; --wall-stroke: #06b6d4; --accent-primary: #f8fafc;
+        }
+        body.theme-inferno {
+            --bg-color: #140505; --surface-color: #210a0a; --border-color: #471a1a;
+            --wall-color: #991b1b; --wall-stroke: #ef4444; --accent-primary: #f97316;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body { 
+            background-color: var(--bg-color); 
+            color: var(--text-main); 
+            font-family: 'Outfit', sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            overflow: hidden; 
+            transition: background-color 0.5s ease;
+            touch-action: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        button {
+            font-family: inherit;
+            cursor: pointer;
+            border: none;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn {
+            background: var(--surface-color);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 14px 24px;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .btn:hover { background: var(--border-color); transform: translateY(-1px); }
+        .btn:active { transform: translateY(1px); }
+        .btn-primary { background: var(--accent-primary); color: #000; border: none; }
+        .btn-primary:hover { background: #f59e0b; }
+
+        .icon-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .icon-btn:hover { background: rgba(255,255,255,0.15); }
+        .icon-btn svg { width: 16px; height: 16px; fill: currentColor; }
+
+        .overlay {
+            position: fixed; inset: 0;
+            background: rgba(15, 17, 21, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            z-index: 100;
+            display: none;
+            align-items: center; justify-content: center; flex-direction: column;
+            opacity: 0; transition: opacity 0.3s ease;
+        }
+        .overlay.active { display: flex; opacity: 1; }
+
+        .panel {
+            background: var(--surface-color); border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg); padding: 32px;
+            width: 90vw; max-width: 400px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+            display: flex; flex-direction: column; gap: 24px;
+        }
+
+        .panel-header { text-align: center; }
+        .panel-title { font-size: 32px; font-weight: 900; letter-spacing: 2px; margin-bottom: 8px; color: var(--text-main); }
+        .panel-subtitle { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 2px; }
+
+        .tabs {
+            display: flex; background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-md); padding: 4px; gap: 4px;
+        }
+        .tab {
+            flex: 1; padding: 10px; text-align: center; font-size: 12px; font-weight: 700;
+            color: var(--text-muted); border-radius: 8px; cursor: pointer; transition: 0.2s;
+        }
+        .tab.active { background: var(--surface-color); color: var(--text-main); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+
+        .grid-selector { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .grid-item {
+            border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px 8px;
+            text-align: center; cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; align-items: center; gap: 8px;
+        }
+        .grid-item.active { border-color: var(--accent-primary); background: rgba(251, 191, 36, 0.05); }
+        .grid-item svg { width: 24px; height: 24px; fill: currentColor; opacity: 0.8; }
+        .grid-item.active svg { opacity: 1; fill: var(--accent-primary); }
+        .grid-item span { font-size: 10px; font-weight: 700; letter-spacing: 1px; }
+
+        .game-wrapper {
+            display: flex; flex-direction: column; align-items: center;
+            width: 100%; max-width: 342px;
+        }
+        
+        .hud {
+            display: flex; justify-content: space-between; align-items: center;
+            width: 100%; margin-bottom: 12px; padding: 0 4px;
+        }
+        .hud-stat { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+        .hud-stat svg { width: 18px; height: 18px; }
+        .hud-stat.coins svg { fill: var(--accent-primary); }
+
+        canvas {
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            object-fit: contain;
+        }
+
+        .shop-list { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px; }
+        .shop-list::-webkit-scrollbar { width: 4px; }
+        .shop-list::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+
+        .shop-item {
+            display: flex; justify-content: space-between; align-items: center; padding: 12px 16px;
+            background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: var(--radius-md);
+            cursor: pointer; transition: 0.2s;
+        }
+        .shop-item.owned { border-color: rgba(255,255,255,0.1); }
+        .shop-item.active-skin { border-color: var(--accent-primary); background: rgba(251, 191, 36, 0.05); }
+        
+        .input-group { display: flex; gap: 8px; }
+        .input-group input {
+            flex: 1; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color);
+            color: var(--text-main); padding: 12px 16px; border-radius: var(--radius-md);
+            font-family: inherit; font-weight: 700; outline: none; text-transform: uppercase;
+        }
+        .input-group input:focus { border-color: var(--accent-primary); }
+
+        #toast-container {
+            position: fixed; top: 24px; left: 50%; transform: translateX(-50%); z-index: 1000;
+            display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+        }
+        .toast {
+            background: var(--surface-color); border: 1px solid var(--border-color); color: var(--text-main);
+            padding: 12px 24px; border-radius: var(--radius-pill); font-size: 13px; font-weight: 700; letter-spacing: 1px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3); animation: toast-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes toast-in {
+            0% { transform: translateY(-100%); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes victory-glow {
+            0% { box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 10px var(--accent-primary); }
+            50% { box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 30px var(--accent-primary); border-color: var(--accent-primary); }
+            100% { box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 10px var(--accent-primary); }
+        }
+        .victory-panel {
+            animation: victory-glow 2s infinite !important;
+        }
+        @keyframes coin-pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.3); color: var(--accent-primary); }
+            100% { transform: scale(1); }
+        }
+        .coin-pop {
+            animation: coin-pop 0.3s ease-out;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body class="theme-classic">
+
+    <div id="toast-container"></div>
+
+    <div id="menu-overlay" class="overlay active">
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">PAC-MAN</div>
+                <div class="panel-subtitle">PRO EDITION</div>
+            </div>
+
+            <div>
+                <div class="panel-subtitle" style="margin-bottom: 8px;">THEME</div>
+                <div class="grid-selector">
+                    <div class="grid-item active" data-theme="classic" onclick="setTheme('classic')">
+                        <svg viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2zm0 6l5 12H7l5-12z"/></svg>
+                        <span>CLASSIC</span>
+                    </div>
+                    <div class="grid-item" data-theme="midnight" onclick="setTheme('midnight')">
+                        <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+                        <span>MIDNIGHT</span>
+                    </div>
+                    <div class="grid-item" data-theme="inferno" onclick="setTheme('inferno')">
+                        <svg viewBox="0 0 24 24"><path d="M17.66 11.2C17.43 10.9 17.15 10.64 16.89 10.38C16.22 9.78 15.46 9.35 14.82 8.72C13.33 7.26 13 4.85 13.95 3C13.06 3.23 12.19 3.75 11.46 4.32C8.87 6.34 7.75 9.78 8.59 12.86C8.84 13.77 9.24 14.65 9.87 15.34C10.14 15.63 10.5 15.77 10.87 15.66C11.3 15.53 11.55 15.1 11.45 14.67C11.27 13.9 11.41 13.05 11.89 12.44C12.41 11.78 13.3 11.54 14 11.95C14.85 12.45 15.14 13.6 14.84 14.49C14.73 14.82 14.84 15.21 15.15 15.37C15.45 15.54 15.82 15.43 16 15.13C16.59 14 16.63 12.63 16.27 11.49L17.66 11.2Z"/><path d="M11 20C11.55 20 12 19.55 12 19C12 18.45 11.55 18 11 18C10.45 18 10 19.55 10.45 20 11 20Z"/></svg>
+                        <span>INFERNO</span>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="panel-subtitle" style="margin-bottom: 8px;">CONTROLS</div>
+                <div class="tabs">
+                    <div class="tab active" id="tab-pc" onclick="setControl('pc')">KEYBOARD</div>
+                    <div class="tab" id="tab-mobile" onclick="setControl('mobile')">TOUCH SWIPE</div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 8px; width: 100%;">
+                <button class="btn" style="flex: 1; padding: 14px 12px;" onclick="openShop()">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M21 8H3V6h18v2zm0 10H3v-2h18v2zm0-5H3v-2h18v2z"/></svg>
+                    GARAGE
+                </button>
+                <button class="btn" style="width: 54px; padding: 0; justify-content: center; flex-shrink: 0; border-color: var(--accent-secondary); background: rgba(59, 130, 246, 0.1);" onclick="startGame(true)">
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="var(--accent-secondary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <button class="btn btn-primary" onclick="startGame(false)">START GAME</button>
+        </div>
+    </div>
+
+    <!-- Pause Menu Overlay -->
+    <div id="pause-overlay" class="overlay">
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">PAUSED</div>
+            </div>
+            <button class="btn btn-primary" onclick="resumeGame()">CONTINUE</button>
+            <button class="btn" onclick="returnToMenu()">MAIN MENU</button>
+        </div>
+    </div>
+
+    <div id="status-overlay" class="overlay">
+        <div class="panel" id="status-panel">
+            <div class="panel-header">
+                <div class="panel-title" id="status-title">GAME OVER</div>
+            </div>
+            <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: var(--radius-md); border: 1px solid var(--border-color); text-align: center;">
+                <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">FINAL SCORE</div>
+                <div id="status-score" style="font-size: 32px; font-weight: 900; color: var(--text-main);">0</div>
+                <div style="font-size: 11px; color: var(--accent-primary); margin-top: 4px; font-weight: 700; letter-spacing: 1px;">BEST: <span id="status-highscore">0</span></div>
+                <div style="display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 10px;">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="var(--accent-primary)"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"/><path d="M14 8h-4v8h4" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+                    <span id="status-coins" style="font-size: 14px; font-weight: 700; color: var(--text-muted);">+0 Credits</span>
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="restartGame()">PLAY AGAIN</button>
+            <button class="btn" onclick="returnToMenu()">MAIN MENU</button>
+        </div>
+    </div>
+
+    <div id="shop-overlay" class="overlay">
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title" style="font-size: 24px;">SKINS</div>
+                <div id="shop-balance-display" class="panel-subtitle" style="color: var(--accent-primary); font-size: 16px; margin-top: 8px; font-weight: 900;">BALANCE: 0 CR</div>
+            </div>
+            <div class="shop-list" id="shop-list-container"></div>
+            <div class="input-group">
+                <input type="text" id="promo-input" placeholder="ENTER CODE...">
+                <button class="btn" style="width: auto;" onclick="applyPromo()">OK</button>
+            </div>
+            <button class="btn btn-primary" onclick="closeShop()">CLOSE</button>
+        </div>
+    </div>
+
+    <div class="game-wrapper">
+        <div class="hud">
+            <div class="hud-stat">
+                SCORE <span id="ui-score" style="color: white; margin-left: 4px;">0</span>
+            </div>
+            
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <div class="hud-stat coins">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"/><path d="M14 8h-4v8h4" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+                    <span id="ui-coins">0</span>
+                </div>
+                <!-- Кнопка Паузы -->
+                <button class="icon-btn" onclick="openPauseMenu()">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <rect x="6" y="5" width="4" height="14" rx="1" />
+                        <rect x="14" y="5" width="4" height="14" rx="1" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const TILE = 18;
+        const COLUMNS = 19;
+        const ROWS = 21;
+        
+        canvas.width = COLUMNS * TILE;
+        canvas.height = ROWS * TILE;
+
+        const FPS = 60;
+        const TIME_STEP = 1000 / FPS;
+        let lastTime = 0;
+        let accumulator = 0;
+        let animationFrameId = null;
+
+        let audioInit = false;
+        let audioCtx = null;
+        let chompState = false;
+
+        function initAudio() {
+            if (audioInit) return;
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+                audioInit = true;
+            } catch (e) {
+                console.warn("Web Audio API not supported");
+            }
+        }
+
+        function playTone(freq, type, duration, vol = 0.1) {
+            if (!audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                
+                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {}
+        }
+
+        const sfx = {
+            chomp: () => {
+                playTone(chompState ? 523.25 : 659.25, 'square', 0.1, 0.05);
+            },
+            success: () => {
+                playTone(523.25, 'triangle', 0.2, 0.1);
+                setTimeout(() => playTone(659.25, 'triangle', 0.2, 0.1), 150);
+                setTimeout(() => playTone(783.99, 'triangle', 0.2, 0.1), 300);
+                setTimeout(() => playTone(1046.50, 'triangle', 0.4, 0.1), 450);
+            },
+            fail: () => {
+                playTone(130.81, 'sawtooth', 0.3, 0.1);
+                setTimeout(() => playTone(98.00, 'sawtooth', 0.5, 0.1), 200);
+            }
+        };
+
+        let score = 0;
+        let coinsEarnedThisGame = 0;
+        let highScore = parseInt(localStorage.getItem('pac_high_score')) || 0;
+        let coins = parseInt(localStorage.getItem('pac_coins')) || 0;
+        let isPaused = true;
+        let isBotMode = false;
+        let controlType = 'pc';
+        let currentTheme = 'classic';
+        
+        let ownedSkins = JSON.parse(localStorage.getItem('pac_skins')) || ['#fbbf24'];
+        let activeSkin = localStorage.getItem('pac_active_skin') || '#fbbf24';
+        let dotsRemaining = 0;
+
+        const mazeData = [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+            [1,0,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,0,1],
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+            [1,0,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,0,1],
+            [1,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,1],
+            [1,1,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,1,1],
+            [1,2,2,1,0,1,0,0,0,0,0,0,0,1,0,1,2,2,1],
+            [1,1,1,1,0,1,0,1,1,2,1,1,0,1,0,1,1,1,1],
+            [0,0,0,0,0,0,0,1,2,2,2,1,0,0,0,0,0,0,0],
+            [1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,1],
+            [1,2,2,1,0,1,0,0,0,0,0,0,0,1,0,1,2,2,1],
+            [1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,1],
+            [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+            [1,0,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,0,1],
+            [1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1],
+            [1,1,0,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,1],
+            [1,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,1],
+            [1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,0,1],
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ];
+        
+        let curMaze = [];
+
+        class Actor {
+            constructor(x, y, speed, color, type, id) {
+                this.x = x * TILE; 
+                this.y = y * TILE; 
+                this.speed = speed; 
+                this.color = color;
+                this.type = type; 
+                this.id = id; 
+                this.dir = 0; // 0:R, 1:L, 2:D, 3:U
+                this.nextDir = 0;
+            }
+
+            update() {
+                const isAlignedX = Math.abs(this.x % TILE) < 0.01;
+                const isAlignedY = Math.abs(this.y % TILE) < 0.01;
+
+                if (isAlignedX && isAlignedY) {
+                    this.x = Math.round(this.x);
+                    this.y = Math.round(this.y);
+
+                    if (this.type === 'ghost') {
+                        this.ghostAI();
+                    } else if (this.type === 'pacman') {
+                        if (isBotMode) {
+                            this.botAI();
+                        }
+                        if (this.canMove(this.nextDir)) {
+                            this.dir = this.nextDir;
+                        }
+                    }
+                    
+                    if (!this.canMove(this.dir)) return;
+                }
+
+                if (this.dir === 0) this.x += this.speed;
+                if (this.dir === 1) this.x -= this.speed;
+                if (this.dir === 2) this.y += this.speed;
+                if (this.dir === 3) this.y -= this.speed;
+
+                if (this.x < 0) {
+                    this.x = (COLUMNS - 1) * TILE;
+                    this.y = Math.round(this.y / TILE) * TILE;
+                } else if (this.x > (COLUMNS - 1) * TILE) {
+                    this.x = 0;
+                    this.y = Math.round(this.y / TILE) * TILE;
+                }
+
+                if (isAlignedX && isAlignedY && this.type === 'pacman') {
+                    let tx = Math.round(this.x / TILE);
+                    let ty = Math.round(this.y / TILE);
+                    
+                    if (tx >= 0 && tx < COLUMNS && ty >= 0 && ty < ROWS) {
+                        if (curMaze[ty][tx] === 0) {
+                            curMaze[ty][tx] = 3; 
+                            score += 10; 
+                            if (!isBotMode) {
+                                coins++; 
+                                coinsEarnedThisGame++;
+                            }
+                            dotsRemaining--;
+                            updateHUD();
+                            
+                            if (audioInit) {
+                                sfx.chomp();
+                                chompState = !chompState;
+                            }
+                            
+                            if (dotsRemaining <= 0) endGame(true);
+                        }
+                    }
+                }
+            }
+
+            canMove(d) {
+                let tx = Math.round(this.x / TILE);
+                let ty = Math.round(this.y / TILE);
+                
+                if (d === 0) tx++;
+                if (d === 1) tx--;
+                if (d === 2) ty++;
+                if (d === 3) ty--;
+                
+                if (tx < 0 || tx >= COLUMNS) return true;
+                return mazeData[ty] && mazeData[ty][tx] !== 1;
+            }
+
+            ghostAI() {
+                let moves = [0, 1, 2, 3].filter(d => this.canMove(d));
+                let rev = this.dir === 0 ? 1 : this.dir === 1 ? 0 : this.dir === 2 ? 3 : 2;
+                
+                if (moves.length > 1) moves = moves.filter(d => d !== rev);
+                
+                moves.sort((a, b) => {
+                    let nextX_A = this.x + (a === 0 ? TILE : a === 1 ? -TILE : 0);
+                    let nextY_A = this.y + (a === 2 ? TILE : a === 3 ? -TILE : 0);
+                    let distA = Math.hypot(nextX_A - pacman.x, nextY_A - pacman.y);
+                    
+                    let nextX_B = this.x + (b === 0 ? TILE : b === 1 ? -TILE : 0);
+                    let nextY_B = this.y + (b === 2 ? TILE : b === 3 ? -TILE : 0);
+                    let distB = Math.hypot(nextX_B - pacman.x, nextY_B - pacman.y);
+                    
+                    return distA - distB + (Math.sin(this.id * 10 + score) * 15);
+                });
+                
+                this.dir = moves[0];
+            }
+
+            // Улучшенный ИИ Пакмена для режима бота
+            botAI() {
+                let currentTx = Math.round(this.x / TILE);
+                let currentTy = Math.round(this.y / TILE);
+                
+                let validMoves = [0, 1, 2, 3].filter(d => this.canMove(d));
+                if (validMoves.length === 0) return;
+
+                let ghostsPos = ghosts.map(g => ({
+                    tx: Math.round(g.x / TILE),
+                    ty: Math.round(g.y / TILE)
+                }));
+
+                // Рассчитываем реальные расстояния от всех призраков с помощью BFS
+                let ghostDists = Array(ROWS).fill(0).map(() => Array(COLUMNS).fill(Infinity));
+                let gQueue = [];
+                for (let g of ghostsPos) {
+                    if (g.tx >= 0 && g.tx < COLUMNS && g.ty >= 0 && g.ty < ROWS) {
+                        ghostDists[g.ty][g.tx] = 0;
+                        gQueue.push({x: g.tx, y: g.ty, d: 0});
+                    }
+                }
+                while(gQueue.length > 0) {
+                    let curr = gQueue.shift();
+                    if (curr.d > 50) continue; // ограничим глубину поиска
+                    for (let nd of [0,1,2,3]) {
+                        let nx = curr.x + (nd===0?1:nd===1?-1:0);
+                        let ny = curr.y + (nd===2?1:nd===3?-1:0);
+                        
+                        let penalty = 1;
+                        if (nx < 0) { nx = COLUMNS - 1; penalty = 20; }
+                        else if (nx >= COLUMNS) { nx = 0; penalty = 20; }
+                        
+                        if (mazeData[ny] && mazeData[ny][nx] !== 1) {
+                            if (curr.d + penalty < ghostDists[ny][nx]) {
+                                ghostDists[ny][nx] = curr.d + penalty;
+                                gQueue.push({x: nx, y: ny, d: curr.d + penalty});
+                            }
+                        }
+                    }
+                }
+
+                let bestMove = validMoves[0];
+                let maxScore = -Infinity;
+                let reverseDir = this.dir === 0 ? 1 : this.dir === 1 ? 0 : this.dir === 2 ? 3 : 2;
+
+                let getGhostDist = (x, y) => {
+                    if (y >= 0 && y < ROWS && x >= 0 && x < COLUMNS) {
+                        return ghostDists[y][x];
+                    }
+                    return Infinity;
+                };
+
+                for (let d of validMoves) {
+                    let nx = currentTx + (d===0?1:d===1?-1:0);
+                    let ny = currentTy + (d===2?1:d===3?-1:0);
+                    
+                    if (nx < 0) { nx = COLUMNS - 1; }
+                    if (nx >= COLUMNS) { nx = 0; }
+
+                    let initialGhostDist = getGhostDist(nx, ny);
+
+                    if (initialGhostDist <= 0) {
+                        let score = -999999;
+                        if (score > maxScore) { maxScore = score; bestMove = d; }
+                        continue;
+                    }
+
+                    let queue = [{x: nx, y: ny, dist: 1}];
+                    let visited = new Set([`${currentTx},${currentTy}`, `${nx},${ny}`]);
+                    let nearestDotDist = Infinity;
+                    let safeTilesCount = 0;
+                    let hasPowerPellet = false; // Можно использовать для будущих улучшений
+
+                    while (queue.length > 0) {
+                        let curr = queue.shift();
+                        safeTilesCount++;
+
+                        if (nearestDotDist === Infinity && curr.x >= 0 && curr.x < COLUMNS) {
+                            if (curMaze[curr.y] && curMaze[curr.y][curr.x] === 0) {
+                                nearestDotDist = curr.dist;
+                            }
+                        }
+                        
+                        if (curr.dist > 120) continue; 
+
+                        for (let nd of [0, 1, 2, 3]) {
+                            let nnx = curr.x + (nd===0?1:nd===1?-1:0);
+                            let nny = curr.y + (nd===2?1:nd===3?-1:0);
+                            
+                            if (nnx < 0) nnx = COLUMNS - 1;
+                            else if (nnx >= COLUMNS) nnx = 0;
+
+                            if (mazeData[nny] && mazeData[nny][nnx] !== 1 && !visited.has(`${nnx},${nny}`)) {
+                                let gDist = getGhostDist(nnx, nny);
+                                if (gDist > curr.dist + 1.5) {
+                                    visited.add(`${nnx},${nny}`);
+                                    queue.push({x: nnx, y: nny, dist: curr.dist + 1});
+                                }
+                            }
+                        }
+                    }
+
+                    if (nearestDotDist === Infinity) nearestDotDist = 999;
+                    let score = 0;
+
+                    // Оценка безопасности и эффективности хода
+                    if (initialGhostDist <= 6) {
+                        score = -100000 + (initialGhostDist * 10000) + (safeTilesCount * 100);
+                    } else {
+                        score = - (nearestDotDist * 1000) + (safeTilesCount * 2) + (initialGhostDist * 5);
+                    }
+
+                    if (safeTilesCount < 15) {
+                        score -= (20 - safeTilesCount) * 10000; // Сильный штраф за тупики
+                    }
+
+                    if (d === reverseDir) {
+                        score -= 2500;
+                    } else if (d === this.dir) {
+                        score += 50; 
+                    }
+
+                    score += Math.random() * 20;
+
+                    if (score > maxScore) {
+                        maxScore = score;
+                        bestMove = d;
+                    }
+                }
+
+                this.nextDir = bestMove;
+            }
+        }
+
+        let pacman;
+        let ghosts = [];
+
+        function initEntities() {
+            curMaze = JSON.parse(JSON.stringify(mazeData));
+            dotsRemaining = 0;
+            curMaze.forEach(r => r.forEach(c => { if(c === 0) dotsRemaining++; }));
+            
+            pacman = new Actor(9, 15, 2, activeSkin, 'pacman', 0);
+            ghosts = [
+                new Actor(8, 9, 1.5, '#ef4444', 'ghost', 1),
+                new Actor(10, 9, 1.5, '#f472b6', 'ghost', 2),
+                new Actor(9, 8, 1.5, '#22d3ee', 'ghost', 3),
+                new Actor(9, 10, 1.5, '#fb923c', 'ghost', 4)
+            ];
+            updateHUD();
+        }
+
+        function updateHUD() {
+            document.getElementById('ui-score').innerText = score;
+            document.getElementById('ui-coins').innerText = coins;
+            document.getElementById('shop-balance-display').innerText = `BALANCE: ${coins} CR`;
+        }
+
+        function saveData() {
+            localStorage.setItem('pac_coins', coins);
+            localStorage.setItem('pac_skins', JSON.stringify(ownedSkins));
+            localStorage.setItem('pac_active_skin', activeSkin);
+        }
+
+        function gameLoop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            let deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+
+            if (deltaTime > 250) deltaTime = 250;
+            accumulator += deltaTime;
+
+            while (accumulator >= TIME_STEP) {
+                if (!isPaused) updateGameState();
+                accumulator -= TIME_STEP;
+            }
+            
+            drawGameState();
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function updateGameState() {
+            pacman.update();
+            for (let g of ghosts) {
+                g.update();
+                if (Math.abs(pacman.x - g.x) < 10 && Math.abs(pacman.y - g.y) < 10) {
+                    endGame(false);
+                    return;
+                }
+            }
+        }
+
+        function drawWall(x, y) {
+            const tx = x * TILE;
+            const ty = y * TILE;
+            const pad = 2;
+            
+            ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--wall-color').trim();
+            ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--wall-stroke').trim();
+            ctx.lineWidth = 1.5;
+            
+            ctx.beginPath();
+            ctx.roundRect(tx + pad, ty + pad, TILE - pad*2, TILE - pad*2, 4);
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        function drawGhost(g) {
+            const x = g.x + TILE / 2;
+            const y = g.y + TILE / 2;
+            const r = TILE / 2 - 2;
+
+            ctx.fillStyle = g.color;
+            ctx.beginPath();
+            
+            ctx.arc(x, y - 1, r, Math.PI, 0);
+            ctx.lineTo(x + r, y + r + 1);
+            const scallopWidth = (r * 2) / 3;
+            for(let i=1; i<=3; i++) {
+                ctx.arc(x + r - scallopWidth * i + scallopWidth/2, y + r + 1, scallopWidth/2, 0, Math.PI, true);
+            }
+            ctx.lineTo(x - r, y - 1);
+            ctx.fill();
+
+            ctx.fillStyle = "#ffffff";
+            ctx.beginPath();
+            ctx.arc(x - 3, y - 3, 2.5, 0, Math.PI * 2);
+            ctx.arc(x + 3, y - 3, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = "#0f1115";
+            let lookX = g.dir === 0 ? 1 : g.dir === 1 ? -1 : 0;
+            let lookY = g.dir === 2 ? 1 : g.dir === 3 ? -1 : 0;
+            ctx.beginPath();
+            ctx.arc(x - 3 + lookX, y - 3 + lookY, 1.2, 0, Math.PI * 2);
+            ctx.arc(x + 3 + lookX, y - 3 + lookY, 1.2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawPacman(p) {
+            const x = p.x + TILE / 2;
+            const y = p.y + TILE / 2;
+            const r = TILE / 2 - 1.5;
+
+            let color = p.color;
+            const isGod = color === 'god_sas';
+            const isPhantom = color === 'phantom';
+            const isRainbow = color === 'rainbow';
+
+            ctx.save();
+            
+            if (isGod) {
+                const time = performance.now();
+                const rot = [0, Math.PI, Math.PI/2, -Math.PI/2][p.dir];
+                const mouthAnim = Math.abs(Math.sin((p.x + p.y) * 0.15)) * 0.4;
+                
+                // Золотое кольцо и спутник
+                ctx.strokeStyle = '#fbbf24';
+                ctx.lineWidth = 1.5;
+                ctx.shadowBlur = 6;
+                ctx.shadowColor = '#fbbf24';
+                ctx.beginPath();
+                ctx.arc(x, y, r + 3, 0, Math.PI * 2); // r + 3 = 10.5
+                ctx.stroke();
+
+                const angle = time / 250;
+                const ox = x + Math.cos(angle) * (r + 3);
+                const oy = y + Math.sin(angle) * (r + 3);
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(ox, oy, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Тело Пакмена
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#0f1115';
+                ctx.strokeStyle = '#fbbf24';
+                ctx.lineWidth = 2;
+                
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.arc(x, y, r, rot + mouthAnim, rot + 2 * Math.PI - mouthAnim); // r = 7.5
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                
+                // Пульсирующее ядро
+                const pulse = 0.2 + Math.abs(Math.sin(time / 200)) * 0.2;
+                ctx.fillStyle = '#ffffff';
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(x, y, r * pulse, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.restore();
+                return;
+            } else if (isRainbow) {
+                color = `hsl(${(performance.now()/3) % 360}, 100%, 50%)`;
+            } else if (isPhantom) {
+                const alpha = 0.5 + Math.sin(performance.now() / 200) * 0.35;
+                color = `rgba(255, 255, 255, ${alpha})`;
+            }
+
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            
+            const mouthAnim = Math.abs(Math.sin((p.x + p.y) * 0.15)) * 0.4;
+            const rot = [0, Math.PI, Math.PI/2, -Math.PI/2][p.dir];
+            
+            ctx.moveTo(x, y);
+            ctx.arc(x, y, r, rot + mouthAnim, rot + 2 * Math.PI - mouthAnim);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawGameState() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const dotColor = getComputedStyle(document.body).getPropertyValue('--dot-color').trim();
+
+            for(let y = 0; y < ROWS; y++) {
+                for(let x = 0; x < COLUMNS; x++) {
+                    if (mazeData[y][x] === 1) {
+                        drawWall(x, y);
+                    } else if (curMaze[y][x] === 0) {
+                        ctx.fillStyle = dotColor;
+                        ctx.globalAlpha = 0.6;
+                        ctx.beginPath();
+                        ctx.arc(x * TILE + TILE / 2, y * TILE + TILE / 2, 2, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.globalAlpha = 1.0;
+                    }
+                }
+            }
+
+            for (let g of ghosts) drawGhost(g);
+            drawPacman(pacman);
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, 0, canvas.width, canvas.height);
+            ctx.arc(pacman.x + TILE / 2, pacman.y + TILE / 2, TILE * 4.8, 0, Math.PI * 2, true);
+            ctx.fillStyle = 'rgba(0, 0, 0, 1)';
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function showToast(message) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.innerText = message;
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-100%)';
+                setTimeout(() => toast.remove(), 300);
+            }, 2500);
+        }
+
+        function setTheme(theme) {
+            currentTheme = theme;
+            document.body.className = `theme-${theme}`;
+            document.querySelectorAll('.grid-item').forEach(el => el.classList.remove('active'));
+            document.querySelector(`[data-theme="${theme}"]`).classList.add('active');
+            if(isPaused) drawGameState(); 
+        }
+
+        function setControl(type) {
+            controlType = type;
+            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+            document.getElementById(`tab-${type}`).classList.add('active');
+        }
+
+        function startGame(bot = false) {
+            isBotMode = bot;
+            score = 0;
+            coinsEarnedThisGame = 0;
+            initEntities();
+            initAudio();
+            document.getElementById('menu-overlay').classList.remove('active');
+            isPaused = false;
+            lastTime = performance.now(); // Reset time to prevent massive jumps
+            if (bot) showToast('BOT MODE ACTIVATED');
+        }
+
+        function openPauseMenu() {
+            if (isPaused) return; // Prevent triggering if already in a menu
+            isPaused = true;
+            document.getElementById('pause-overlay').classList.add('active');
+        }
+
+        function resumeGame() {
+            document.getElementById('pause-overlay').classList.remove('active');
+            isPaused = false;
+            lastTime = performance.now(); // Reset time for smooth continuation
+        }
+
+        function returnToMenu() {
+            document.getElementById('status-overlay').classList.remove('active');
+            document.getElementById('pause-overlay').classList.remove('active');
+            document.getElementById('menu-overlay').classList.add('active');
+            initEntities();
+            drawGameState();
+            isPaused = true;
+        }
+
+        function restartGame() {
+            initAudio();
+            score = 0;
+            coinsEarnedThisGame = 0;
+            initEntities();
+            document.getElementById('status-overlay').classList.remove('active');
+            isPaused = false;
+            lastTime = performance.now();
+        }
+
+        function endGame(isVictory) {
+            isPaused = true;
+            if (!isBotMode && score > highScore) {
+                highScore = score;
+                localStorage.setItem('pac_high_score', highScore);
+            }
+            saveData();
+            
+            if (audioInit) {
+                if (isVictory) sfx.success();
+                else sfx.fail();
+            }
+            
+            const overlay = document.getElementById('status-overlay');
+            const panel = document.getElementById('status-panel');
+            const title = document.getElementById('status-title');
+            
+            if (isVictory) {
+                panel.classList.add('victory-panel');
+            } else {
+                panel.classList.remove('victory-panel');
+            }
+            
+            title.innerText = isVictory ? 'LEVEL CLEARED' : 'GAME OVER';
+            title.style.color = isVictory ? 'var(--accent-primary)' : 'var(--accent-danger)';
+            
+            document.getElementById('status-score').innerText = score;
+            document.getElementById('status-highscore').innerText = highScore;
+            
+            const coinsEl = document.getElementById('status-coins');
+            coinsEl.innerText = `+0 Credits`;
+            
+            if (coinsEarnedThisGame > 0) {
+                let currentDisplayCoins = 0;
+                let countInterval = setInterval(() => {
+                    currentDisplayCoins += Math.max(1, Math.floor(coinsEarnedThisGame / 15));
+                    if (currentDisplayCoins >= coinsEarnedThisGame) {
+                        currentDisplayCoins = coinsEarnedThisGame;
+                        clearInterval(countInterval);
+                    }
+                    coinsEl.innerText = `+${currentDisplayCoins} Credits`;
+                    coinsEl.classList.remove('coin-pop');
+                    void coinsEl.offsetWidth; // trigger reflow
+                    coinsEl.classList.add('coin-pop');
+                }, 50);
+            }
+            
+            overlay.classList.add('active');
+        }
+
+        const shopData = [
+            { id: '#fbbf24', name: 'CLASSIC YELLOW', price: 0 },
+            { id: '#3b82f6', name: 'NEON BLUE', price: 100 },
+            { id: '#10b981', name: 'TOXIC GREEN', price: 250 },
+            { id: '#8b5cf6', name: 'PURPLE HAZE', price: 500 },
+            { id: 'rainbow', name: 'RGB CHROMA', price: 2000 },
+            { id: 'phantom', name: 'PHANTOM', price: 5000 },
+            { id: 'god_sas', name: 'GOD SAS', price: 10000 }
+        ];
+
+        function getPacmanIcon(id) {
+            let fill = id;
+            let extra = '';
+            let pathAttrs = `fill="${fill}"`;
+            let innerPath = '';
+            
+            if (id === 'rainbow') {
+                extra = `<defs>
+                            <linearGradient id="rainbow-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#ef4444"><animate attributeName="stop-color" values="#ef4444;#fbbf24;#10b981;#3b82f6;#ef4444" dur="2s" repeatCount="indefinite" /></stop>
+                                <stop offset="100%" stop-color="#3b82f6"><animate attributeName="stop-color" values="#3b82f6;#ef4444;#fbbf24;#10b981;#3b82f6" dur="2s" repeatCount="indefinite" /></stop>
+                            </linearGradient>
+                         </defs>`;
+                pathAttrs = `fill="url(#rainbow-grad)"`;
+            } else if (id === 'phantom') {
+                pathAttrs = `fill="#ffffff"`;
+                innerPath = `<animate attributeName="opacity" values="0.3;1;0.3" dur="1s" repeatCount="indefinite"/>`;
+            } else if (id === 'god_sas') {
+                // Идеально выверенные пропорции God SAS для магазина (кольцо x1.4 от тела)
+                return `<svg viewBox="0 0 100 100" width="30" height="30" style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4)); flex-shrink: 0; overflow: visible;">
+                    <circle cx="54" cy="50" r="46" fill="none" stroke="#fbbf24" stroke-width="4">
+                        <animateTransform attributeName="transform" type="rotate" from="0 54 50" to="360 54 50" dur="4s" repeatCount="indefinite"/>
+                    </circle>
+                    <g>
+                        <animateTransform attributeName="transform" type="rotate" from="0 54 50" to="360 54 50" dur="4s" repeatCount="indefinite"/>
+                        <circle cx="100" cy="50" r="5" fill="#ffffff" />
+                    </g>
+                    <path d="M50,50 L85,30 A35,35 0 1,0 85,70 Z" fill="#0f1115" stroke="#fbbf24" stroke-width="5" stroke-linejoin="round"/>
+                    <circle cx="50" cy="50" r="14" fill="#ffffff">
+                        <animate attributeName="opacity" values="0.5;1;0.5" dur="0.8s" repeatCount="indefinite"/>
+                    </circle>
+                </svg>`;
+            }
+
+            return `<svg viewBox="0 0 100 100" width="30" height="30" style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4)); flex-shrink: 0;">
+                ${extra}
+                <path d="M50,50 L95,25 A50,50 0 1,0 95,75 Z" ${pathAttrs}>
+                    ${innerPath}
+                </path>
+            </svg>`;
+        }
+
+        function renderShop() {
+            updateHUD();
+            const container = document.getElementById('shop-list-container');
+            container.innerHTML = '';
+            
+            shopData.forEach(item => {
+                const isOwned = ownedSkins.includes(item.id);
+                const isActive = activeSkin === item.id;
+                
+                const div = document.createElement('div');
+                div.className = `shop-item ${isOwned ? 'owned' : ''} ${isActive ? 'active-skin' : ''}`;
+                
+                div.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        ${getPacmanIcon(item.id)}
+                        <div style="font-size:12px; font-weight:700;">${item.name}</div>
+                    </div>
+                    <div style="font-size:12px; font-weight:700; color:var(--text-muted);">
+                        ${isActive ? 'EQUIPPED' : isOwned ? 'SELECT' : `<span style="color:var(--accent-primary)">${item.price} CR</span>`}
+                    </div>
+                `;
+                
+                div.onclick = () => buyOrEquipSkin(item.id, item.price);
+                container.appendChild(div);
+            });
+        }
+
+        function buyOrEquipSkin(id, price) {
+            initAudio();
+            if (ownedSkins.includes(id)) {
+                activeSkin = id; pacman.color = id; saveData(); renderShop(); showToast("Skin Equipped!");
+            } else if (coins >= price) {
+                if (audioInit) sfx.success();
+                coins -= price; ownedSkins.push(id); activeSkin = id; pacman.color = id;
+                saveData(); updateHUD(); renderShop(); showToast("Purchase Successful!");
+            } else {
+                showToast("Not enough Credits!");
+            }
+        }
+
+        function openShop() { initAudio(); renderShop(); document.getElementById('shop-overlay').classList.add('active'); }
+        function closeShop() { document.getElementById('shop-overlay').classList.remove('active'); }
+
+        function applyPromo() {
+            const input = document.getElementById('promo-input');
+            if (input.value.toUpperCase().trim() === 'SAS') {
+                coins += 10000; saveData(); updateHUD(); renderShop(); showToast("10,000 Credits added!");
+            } else {
+                showToast("Invalid code");
+            }
+            input.value = '';
+        }
+
+        // Авто-Пауза при смене вкладки/блокировке экрана телефона
+        window.addEventListener('visibilitychange', () => {
+            if ((document.hidden || document.visibilityState === 'hidden') && !isPaused) {
+                openPauseMenu();
+            }
+        });
+        window.addEventListener('blur', () => {
+            if (!isPaused) openPauseMenu();
+        });
+
+        // Контроллер игрока (отключается в режиме бота)
+        window.addEventListener('keydown', e => {
+            if (controlType !== 'pc' || isPaused || isBotMode) return;
+            if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') pacman.nextDir = 0;
+            if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') pacman.nextDir = 1;
+            if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') pacman.nextDir = 2;
+            if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') pacman.nextDir = 3;
+        });
+
+        let touchStartX = null;
+        let touchStartY = null;
+        window.addEventListener('touchstart', e => {
+            if (controlType !== 'mobile' || isPaused || isBotMode) return;
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        }, {passive: false});
+
+        window.addEventListener('touchmove', e => {
+            if (controlType !== 'mobile' || isPaused || isBotMode || !touchStartX || !touchStartY) return;
+            e.preventDefault(); 
+            let dx = e.touches[0].clientX - touchStartX;
+            let dy = e.touches[0].clientY - touchStartY;
+            if (Math.abs(dx) > 20 || Math.abs(dy) > 20) {
+                if (Math.abs(dx) > Math.abs(dy)) pacman.nextDir = dx > 0 ? 0 : 1;
+                else pacman.nextDir = dy > 0 ? 2 : 3;
+                touchStartX = null; touchStartY = null;
+            }
+        }, {passive: false});
+
+        initEntities();
+        animationFrameId = requestAnimationFrame(gameLoop);
+        
+    </script>
+</body>
+</html>
