@@ -1,0 +1,3419 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>LavaLamp 3D Physics Studio — Реалистичная термогидродинамика и экспорт в Blender</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #07060d;
+      color: #f3f4f6;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      touch-action: none;
+    }
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.14);
+      border-radius: 999px;
+      outline: none;
+      cursor: pointer;
+      touch-action: pan-x;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #fb923c, #f43f5e);
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 10px rgba(244, 63, 94, 0.7);
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+    input[type="color"] {
+      -webkit-appearance: none;
+      border: none;
+      padding: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      cursor: pointer;
+      background: transparent;
+    }
+    input[type="color"]::-webkit-color-swatch-wrapper {
+      padding: 0;
+    }
+    input[type="color"]::-webkit-color-swatch {
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 7px;
+    }
+    .glass-panel {
+      background: rgba(14, 13, 24, 0.84);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65);
+    }
+    .custom-scroll {
+      touch-action: pan-y;
+      -webkit-overflow-scrolling: touch;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.20);
+      border-radius: 999px;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+      touch-action: pan-x;
+      -webkit-overflow-scrolling: touch;
+    }
+    .preset-chip {
+      transition: all 0.18s ease;
+    }
+    .preset-chip:hover {
+      transform: translateY(-1px);
+    }
+    .preset-chip.active {
+      border-color: #fb923c;
+      box-shadow: 0 0 0 1px rgba(251, 146, 60, 0.5), 0 4px 14px rgba(244, 63, 94, 0.25);
+    }
+
+    /* Адаптивная панель управления:
+       - ПК (>= 1024px): правый сайдбар во всю высоту
+       - Телефон вертикально (< 1024px, portrait): нижняя шторка (Bottom Sheet) до 52vh
+       - Телефон горизонтально (< 1024px, landscape / низкий экран): компактный правый дровер */
+    #controlPanel {
+      transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
+    }
+    @media (max-width: 1023px) and (orientation: portrait) {
+      #controlPanel {
+        top: auto;
+        left: 8px;
+        right: 8px;
+        bottom: 56px;
+        width: auto;
+        max-height: 52vh;
+      }
+      #controlPanel.panel-hidden {
+        transform: translateY(115%);
+        opacity: 0;
+        pointer-events: none;
+      }
+    }
+    @media (max-width: 1023px) and (orientation: landscape), (max-height: 540px) {
+      #controlPanel {
+        top: 52px;
+        bottom: 8px;
+        right: 8px;
+        left: auto;
+        width: 310px;
+        max-width: calc(100vw - 16px);
+      }
+      #controlPanel.panel-hidden {
+        transform: translateX(110%);
+        opacity: 0;
+        pointer-events: none;
+      }
+      #topToolbar {
+        top: 6px !important;
+        left: 8px !important;
+        right: 8px !important;
+      }
+      #bottomToolbar {
+        bottom: 6px !important;
+        left: 8px !important;
+      }
+    }
+    @media (min-width: 1024px) {
+      #controlPanel {
+        top: 64px;
+        right: 12px;
+        bottom: 12px;
+        width: 376px;
+      }
+      #controlPanel.panel-hidden {
+        transform: translateX(110%);
+        opacity: 0;
+        pointer-events: none;
+      }
+    }
+  </style>
+</head>
+<body class="w-full h-full relative overflow-hidden select-none">
+
+  <!-- 3D WebGL Canvas Container -->
+  <div id="canvasContainer" class="absolute inset-0 w-full h-full cursor-grab active:cursor-grabbing"></div>
+
+  <!-- Верхняя панель статуса и быстрых действий: такой же горизонтально пролистываемый контейнер, как и нижняя панель (без наложений на телефоне!) -->
+  <header id="topToolbar" class="absolute top-2.5 left-2.5 right-2.5 z-20 flex items-center justify-between gap-1.5 pointer-events-auto overflow-x-auto no-scrollbar pb-0.5">
+    <div class="glass-panel rounded-xl px-3 py-1.5 sm:px-3.5 sm:py-2 flex items-center gap-2.5 shrink-0 whitespace-nowrap">
+      <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-br from-orange-500 via-rose-500 to-purple-600 flex items-center justify-center shadow-lg shadow-rose-500/30 shrink-0">
+        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.75 3.5 5 7.5 5 11.5a5 5 0 11-10 0C7 10.5 9.25 6.5 12 3z" />
+        </svg>
+      </div>
+      <div class="flex items-center gap-2.5">
+        <div>
+          <div class="flex items-center gap-1.5">
+            <h1 class="text-xs sm:text-sm font-bold tracking-tight text-white">LavaLamp 3D</h1>
+            <span id="regimeBadge" class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
+              Активная конвекция
+            </span>
+          </div>
+          <div class="flex items-center gap-2 text-[10px] sm:text-[11px] text-slate-400 mono mt-0.5">
+            <span>Т°: <strong id="hudTemp" class="text-orange-300">58.4°C</strong></span>
+            <span>•</span>
+            <span>Капель: <strong id="hudBlobs" class="text-rose-300">7</strong></span>
+            <span>•</span>
+            <span>Сетка: <strong id="hudTris" class="text-indigo-300">16.2k</strong></span>
+            <span>•</span>
+            <span><strong id="hudFps" class="text-emerald-300">60</strong> FPS</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-1.5 shrink-0">
+      <button id="btnTogglePanel" class="glass-panel hover:bg-white/10 border-orange-500/30 text-orange-200 px-3 py-2 rounded-xl text-[11px] sm:text-xs font-semibold flex items-center gap-1.5 transition shrink-0 whitespace-nowrap">
+        <svg class="w-4 h-4 text-orange-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+        </svg>
+        <span id="togglePanelText">Параметры</span>
+      </button>
+
+      <button id="btnExportBlenderPy" class="glass-panel hover:bg-orange-500/20 border-orange-500/40 text-orange-200 px-3 py-2 rounded-xl text-[11px] sm:text-xs font-semibold flex items-center gap-1.5 transition shadow-lg shrink-0 whitespace-nowrap" title="Скачать генератор нативного .blend со всей физикой">
+        <svg class="w-4 h-4 text-orange-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4" />
+        </svg>
+        <span>Скачать для Blender (.py → .blend)</span>
+      </button>
+
+      <button id="btnExportGltf" class="glass-panel hover:bg-indigo-500/20 border-indigo-500/40 text-indigo-200 px-3 py-2 rounded-xl text-[11px] sm:text-xs font-semibold flex items-center gap-1.5 transition shadow-lg shrink-0 whitespace-nowrap" title="Скачать анимированную 3D-сцену .gltf">
+        <svg class="w-4 h-4 text-indigo-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+        </svg>
+        <span>Скачать 3D (.gltf с анимацией)</span>
+      </button>
+
+      <button id="btnOpenBlenderModal" class="glass-panel hover:bg-white/10 text-slate-200 px-3 py-2 rounded-xl text-[11px] sm:text-xs font-medium flex items-center gap-1.5 transition shrink-0 whitespace-nowrap" title="Инструкция и скрипт для Blender">
+        <svg class="w-4 h-4 text-rose-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z" />
+        </svg>
+        <span>Как открыть в Blender</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Нижняя панель интерактивных физических воздействий (с горизонтальным скроллом на узких экранах) -->
+  <div id="bottomToolbar" class="absolute bottom-2.5 left-2.5 right-2.5 lg:right-auto z-20 flex items-center gap-1.5 pointer-events-auto overflow-x-auto no-scrollbar pb-0.5">
+    <button id="btnPlayPause" class="glass-panel hover:bg-white/10 text-white px-3 py-2 rounded-xl text-[11px] sm:text-xs font-semibold flex items-center gap-1.5 transition shrink-0 whitespace-nowrap">
+      <span id="playPauseIcon">⏸</span>
+      <span id="playPauseLabel">Пауза</span>
+    </button>
+
+    <button id="btnHeatBoost" class="glass-panel hover:bg-orange-500/20 text-orange-200 px-3 py-2 rounded-xl text-[11px] sm:text-xs font-medium flex items-center gap-1.5 transition shrink-0 whitespace-nowrap" title="Мгновенный нагрев нижних капель воска">
+      <span>🔥</span>
+      <span>Тепловой импульс</span>
+    </button>
+
+    <button id="btnStirSwirl" class="glass-panel hover:bg-rose-500/20 text-rose-200 px-3 py-2 rounded-xl text-[11px] sm:text-xs font-medium flex items-center gap-1.5 transition shrink-0 whitespace-nowrap" title="Создать конвективный вихрь внутри колбы">
+      <span>🌀</span>
+      <span>Встряхнуть</span>
+    </button>
+
+    <button id="btnAddBlob" class="glass-panel hover:bg-emerald-500/20 text-emerald-200 px-3 py-2 rounded-xl text-[11px] sm:text-xs font-medium flex items-center gap-1.5 transition shrink-0 whitespace-nowrap" title="Добавить новую каплю расплавленного воска">
+      <span>➕</span>
+      <span>Капля</span>
+    </button>
+
+    <button id="btnThermalView" class="glass-panel hover:bg-purple-500/20 text-purple-200 px-3 py-2 rounded-xl text-[11px] sm:text-xs font-medium flex items-center gap-1.5 transition shrink-0 whitespace-nowrap" title="Режим тепловизора и поля температур">
+      <span>🌡️</span>
+      <span id="thermalViewLabel">Тепловизор: Выкл</span>
+    </button>
+
+    <button id="btnWireframe" class="glass-panel hover:bg-sky-500/20 text-sky-200 px-3 py-2 rounded-xl text-[11px] sm:text-xs font-medium flex items-center gap-1.5 transition shrink-0 whitespace-nowrap" title="Показать полигональную сетку Marching Cubes">
+      <span>🕸️</span>
+      <span id="wireframeLabel">Сетка: Выкл</span>
+    </button>
+
+    <button id="btnResetCamera" class="glass-panel hover:bg-white/10 text-slate-300 px-2.5 py-2 rounded-xl text-[11px] sm:text-xs font-medium transition shrink-0 whitespace-nowrap" title="Сбросить ракурс камеры">
+      🎥 Сброс вида
+    </button>
+  </div>
+
+  <!-- Подсказка прямого взаимодействия с 3D-моделью (только на широких экранах) -->
+  <div class="hidden xl:flex absolute bottom-14 left-3 z-10 pointer-events-none items-center gap-2 text-[11px] text-slate-400 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/5">
+    <span>💡 <strong>Тап / ЛКМ по колбе:</strong> мягкая волна по каплям • <strong>Вращение:</strong> 1 палец / ЛКМ • <strong>Зум:</strong> 2 пальца / колесо</span>
+  </div>
+
+  <!-- Адаптивная панель тонкой настройки параметров -->
+  <aside id="controlPanel" class="glass-panel fixed rounded-2xl z-30 flex flex-col overflow-hidden">
+    <!-- Шапка панели с вкладками и кнопкой скрытия на мобильных -->
+    <div class="flex items-center gap-1 border-b border-white/10 bg-black/30 p-1.5 shrink-0">
+      <div class="grid grid-cols-3 flex-1 gap-1">
+        <button data-tab="tabPhysics" class="tab-btn py-1.5 px-2 rounded-xl text-[11px] sm:text-xs font-semibold bg-gradient-to-r from-orange-500/25 to-rose-500/25 text-orange-200 border border-orange-500/30 transition">
+          ⚛️ Физика
+        </button>
+        <button data-tab="tabAppearance" class="tab-btn py-1.5 px-2 rounded-xl text-[11px] sm:text-xs font-semibold text-slate-400 hover:text-white border border-transparent transition">
+          🎨 Цвета и Свет
+        </button>
+        <button data-tab="tabDesign" class="tab-btn py-1.5 px-2 rounded-xl text-[11px] sm:text-xs font-semibold text-slate-400 hover:text-white border border-transparent transition">
+          🏺 Корпус и Blender
+        </button>
+      </div>
+      <button id="btnClosePanelMobile" class="lg:hidden px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/15 text-slate-300 text-xs font-bold shrink-0" title="Свернуть панель параметров">
+        ✕
+      </button>
+    </div>
+
+    <div class="flex-1 overflow-y-auto custom-scroll p-3.5 sm:p-4 space-y-3.5">
+
+      <!-- ВКЛАДКА 1: ФИЗИКА И ГИДРОДИНАМИКА -->
+      <div id="tabPhysics" class="tab-pane space-y-3.5">
+        <div class="bg-white/[0.03] border border-white/5 rounded-xl p-3 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-semibold text-orange-300 uppercase tracking-wider">Конвекция и Деформация</span>
+            <button id="btnResetPhysics" class="text-[11px] text-slate-400 hover:text-white underline">Сброс</button>
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <label for="sliderHeatPower" class="text-slate-300">Мощность нагрева (Скорость потока)</label>
+              <span id="valHeatPower" class="mono text-orange-300 font-semibold">45 Вт</span>
+            </div>
+            <input id="sliderHeatPower" type="range" min="18" max="85" step="1" value="45" />
+            <div class="flex justify-between text-[10px] text-slate-500 mt-0.5">
+              <span>18 Вт (Медленно)</span>
+              <span>45 Вт (Реалистично)</span>
+              <span>85 Вт (Активно)</span>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <label for="sliderSurfaceTension" class="text-slate-300">Порог слипания капель (Натяжение σ)</label>
+              <span id="valSurfaceTension" class="mono text-rose-300 font-semibold">0.46</span>
+            </div>
+            <input id="sliderSurfaceTension" type="range" min="0.32" max="0.66" step="0.02" value="0.46" />
+            <div class="flex justify-between text-[10px] text-slate-500 mt-0.5">
+              <span>Тягучее слияние</span>
+              <span>Упругие капли</span>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <label for="sliderCoalescence" class="text-slate-300">Притяжение попутных капель</label>
+              <span id="valCoalescence" class="mono text-pink-300 font-semibold">1.00×</span>
+            </div>
+            <input id="sliderCoalescence" type="range" min="0.00" max="2.00" step="0.05" value="1.00" />
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <label for="sliderViscosity" class="text-slate-300">Вязкость жидкости (Плавность)</label>
+              <span id="valViscosity" class="mono text-indigo-300 font-semibold">2.40 Па·с</span>
+            </div>
+            <input id="sliderViscosity" type="range" min="1.10" max="3.80" step="0.05" value="2.40" />
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <label for="sliderBuoyancy" class="text-slate-300">Амплитуда всплытия (Плавучесть β)</label>
+              <span id="valBuoyancy" class="mono text-amber-300 font-semibold">1.00×</span>
+            </div>
+            <input id="sliderBuoyancy" type="range" min="0.55" max="1.35" step="0.05" value="1.00" />
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <label for="sliderStretch" class="text-slate-300">Плавное колебание и деформация капель</label>
+              <span id="valStretch" class="mono text-emerald-300 font-semibold">1.00×</span>
+            </div>
+            <input id="sliderStretch" type="range" min="0.20" max="1.80" step="0.05" value="1.00" />
+          </div>
+        </div>
+
+        <div class="bg-white/[0.03] border border-white/5 rounded-xl p-3 space-y-3">
+          <span class="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider block">Количество капель и Сетка</span>
+
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <label for="sliderBlobCount" class="text-slate-300">Количество капель воска</label>
+              <span id="valBlobCount" class="mono text-white font-semibold">7 шт.</span>
+            </div>
+            <input id="sliderBlobCount" type="range" min="4" max="12" step="1" value="7" />
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <label for="sliderBlobScale" class="text-slate-300">Размер капель лавы</label>
+              <span id="valBlobScale" class="mono text-white font-semibold">1.00×</span>
+            </div>
+            <input id="sliderBlobScale" type="range" min="0.70" max="1.30" step="0.05" value="1.00" />
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <label for="sliderGridRes" class="text-slate-300">Разрешение 3D-сетки (Marching Cubes)</label>
+              <span id="valGridRes" class="mono text-emerald-300 font-semibold">40×72×40</span>
+            </div>
+            <input id="sliderGridRes" type="range" min="28" max="46" step="2" value="40" />
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <label for="sliderTimeScale" class="text-slate-300">Скорость симуляции времени</label>
+              <span id="valTimeScale" class="mono text-amber-300 font-semibold">1.0×</span>
+            </div>
+            <input id="sliderTimeScale" type="range" min="0.2" max="2.5" step="0.1" value="1.0" />
+          </div>
+        </div>
+      </div>
+
+      <!-- ВКЛАДКА 2: ЦВЕТА, МАТЕРИАЛЫ И ОСВЕЩЕНИЕ -->
+      <div id="tabAppearance" class="tab-pane hidden space-y-3.5">
+        <div class="bg-white/[0.03] border border-white/5 rounded-xl p-3 space-y-2.5">
+          <span class="text-[11px] font-semibold text-rose-300 uppercase tracking-wider block">Готовые цветовые палитры</span>
+          <div class="grid grid-cols-2 gap-2" id="presetPaletteGrid">
+            <button data-palette="magma" class="preset-chip active flex items-center gap-2 p-2 rounded-xl bg-black/40 border border-white/10 text-left">
+              <span class="w-5 h-5 rounded-full bg-gradient-to-tr from-yellow-400 via-orange-500 to-rose-600 shrink-0"></span>
+              <span class="text-xs font-medium text-slate-200 truncate">Магма Астро</span>
+            </button>
+            <button data-palette="cyber" class="preset-chip flex items-center gap-2 p-2 rounded-xl bg-black/40 border border-white/10 text-left">
+              <span class="w-5 h-5 rounded-full bg-gradient-to-tr from-cyan-400 via-fuchsia-500 to-indigo-700 shrink-0"></span>
+              <span class="text-xs font-medium text-slate-200 truncate">Киберпанк Неон</span>
+            </button>
+            <button data-palette="emerald" class="preset-chip flex items-center gap-2 p-2 rounded-xl bg-black/40 border border-white/10 text-left">
+              <span class="w-5 h-5 rounded-full bg-gradient-to-tr from-lime-300 via-emerald-500 to-teal-900 shrink-0"></span>
+              <span class="text-xs font-medium text-slate-200 truncate">Био-Изумруд</span>
+            </button>
+            <button data-palette="solar" class="preset-chip flex items-center gap-2 p-2 rounded-xl bg-black/40 border border-white/10 text-left">
+              <span class="w-5 h-5 rounded-full bg-gradient-to-tr from-amber-200 via-amber-500 to-red-900 shrink-0"></span>
+              <span class="text-xs font-medium text-slate-200 truncate">Солнечное Золото</span>
+            </button>
+            <button data-palette="plasma" class="preset-chip flex items-center gap-2 p-2 rounded-xl bg-black/40 border border-white/10 text-left">
+              <span class="w-5 h-5 rounded-full bg-gradient-to-tr from-sky-300 via-blue-600 to-violet-950 shrink-0"></span>
+              <span class="text-xs font-medium text-slate-200 truncate">Кобальт Плазма</span>
+            </button>
+            <button data-palette="quartz" class="preset-chip flex items-center gap-2 p-2 rounded-xl bg-black/40 border border-white/10 text-left">
+              <span class="w-5 h-5 rounded-full bg-gradient-to-tr from-pink-200 via-rose-400 to-slate-800 shrink-0"></span>
+              <span class="text-xs font-medium text-slate-200 truncate">Розовый Кварц</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-white/[0.03] border border-white/5 rounded-xl p-3 space-y-3">
+          <span class="text-[11px] font-semibold text-orange-300 uppercase tracking-wider block">Индивидуальные цвета</span>
+
+          <div class="flex items-center justify-between">
+            <label for="colorWaxHot" class="text-xs text-slate-300">Подсветка воска снизу (у лампы)</label>
+            <input id="colorWaxHot" type="color" value="#ff7b00" />
+          </div>
+
+          <div class="flex items-center justify-between">
+            <label for="colorWaxCold" class="text-xs text-slate-300">Основной пигмент воска</label>
+            <input id="colorWaxCold" type="color" value="#e11d48" />
+          </div>
+
+          <div class="flex items-center justify-between">
+            <label for="colorLiquid" class="text-xs text-slate-300">Оттенок жидкости в колбе</label>
+            <input id="colorLiquid" type="color" value="#240b4c" />
+          </div>
+        </div>
+
+        <div class="bg-white/[0.03] border border-white/5 rounded-xl p-3 space-y-3">
+          <span class="text-[11px] font-semibold text-purple-300 uppercase tracking-wider block">Шейдеры SSS и Стекло</span>
+
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <label for="sliderSSS" class="text-slate-300">Подповерхностное рассеивание (SSS)</label>
+              <span id="valSSS" class="mono text-orange-300 font-semibold">0.90</span>
+            </div>
+            <input id="sliderSSS" type="range" min="0.0" max="1.5" step="0.05" value="0.90" />
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <label for="sliderGlow" class="text-slate-300">Яркость внутреннего свечения</label>
+              <span id="valGlow" class="mono text-amber-300 font-semibold">1.40</span>
+            </div>
+            <input id="sliderGlow" type="range" min="0.2" max="2.8" step="0.05" value="1.40" />
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <label for="sliderGlassOpacity" class="text-slate-300">Плотность бликов стекла колбы</label>
+              <span id="valGlassOpacity" class="mono text-sky-300 font-semibold">0.22</span>
+            </div>
+            <input id="sliderGlassOpacity" type="range" min="0.08" max="0.60" step="0.02" value="0.22" />
+          </div>
+        </div>
+      </div>
+
+      <!-- ВКЛАДКА 3: КОРПУС, МЕТАЛЛ И ЭКСПОРТ В BLENDER -->
+      <div id="tabDesign" class="tab-pane hidden space-y-3.5">
+        <div class="bg-white/[0.03] border border-white/5 rounded-xl p-3 space-y-2.5">
+          <span class="text-[11px] font-semibold text-amber-300 uppercase tracking-wider block">Форма стеклянной колбы и корпуса</span>
+          <div class="grid grid-cols-1 gap-2" id="bottleShapeGrid">
+            <button data-shape="astro" class="preset-chip active flex items-center justify-between p-2.5 rounded-xl bg-black/40 border border-white/10 text-left">
+              <div>
+                <div class="text-xs font-semibold text-white">Astro Classic (1963)</div>
+                <div class="text-[11px] text-slate-400">Каноническая двухконусная колба Эдварда Уокера</div>
+              </div>
+              <span class="text-base">⏳</span>
+            </button>
+            <button data-shape="rocket" class="preset-chip flex items-center justify-between p-2.5 rounded-xl bg-black/40 border border-white/10 text-left">
+              <div>
+                <div class="text-xs font-semibold text-white">Telstar Space Rocket</div>
+                <div class="text-[11px] text-slate-400">Обтекаемый купол и база в стиле ретро-ракеты</div>
+              </div>
+              <span class="text-base">🚀</span>
+            </button>
+            <button data-shape="cylinder" class="preset-chip flex items-center justify-between p-2.5 rounded-xl bg-black/40 border border-white/10 text-left">
+              <div>
+                <div class="text-xs font-semibold text-white">Studio Cylinder Pro</div>
+                <div class="text-[11px] text-slate-400">Широкая лабораторная колонна для крупных капель</div>
+              </div>
+              <span class="text-base">🧪</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-white/[0.03] border border-white/5 rounded-xl p-3 space-y-2.5">
+          <span class="text-[11px] font-semibold text-slate-300 uppercase tracking-wider block">Покрытие металлического корпуса</span>
+          <div class="grid grid-cols-2 gap-2" id="metalFinishGrid">
+            <button data-metal="silver" class="preset-chip active p-2 rounded-xl bg-black/40 border border-white/10 text-xs font-medium text-slate-200 flex items-center gap-2">
+              <span class="w-4 h-4 rounded-full bg-gradient-to-br from-slate-100 to-slate-500 shrink-0"></span>
+              <span class="truncate">Хром / Алюминий</span>
+            </button>
+            <button data-metal="gold" class="preset-chip p-2 rounded-xl bg-black/40 border border-white/10 text-xs font-medium text-amber-200 flex items-center gap-2">
+              <span class="w-4 h-4 rounded-full bg-gradient-to-br from-amber-200 to-yellow-600 shrink-0"></span>
+              <span class="truncate">Матовая Латунь</span>
+            </button>
+            <button data-metal="copper" class="preset-chip p-2 rounded-xl bg-black/40 border border-white/10 text-xs font-medium text-orange-200 flex items-center gap-2">
+              <span class="w-4 h-4 rounded-full bg-gradient-to-br from-orange-300 to-rose-700 shrink-0"></span>
+              <span class="truncate">Красная Медь</span>
+            </button>
+            <button data-metal="obsidian" class="preset-chip p-2 rounded-xl bg-black/40 border border-white/10 text-xs font-medium text-slate-300 flex items-center gap-2">
+              <span class="w-4 h-4 rounded-full bg-gradient-to-br from-slate-600 to-zinc-950 border border-white/20 shrink-0"></span>
+              <span class="truncate">Чёрный Обсидиан</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-gradient-to-br from-orange-500/15 via-rose-500/10 to-purple-600/15 border border-orange-500/30 rounded-xl p-3.5 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-orange-200 uppercase tracking-wider">Экспорт в Blender с анимацией</span>
+            <span class="text-[10px] mono px-2 py-0.5 rounded bg-orange-500/20 text-orange-300">24 FPS</span>
+          </div>
+          <p class="text-[11px] text-slate-300 leading-relaxed">
+            Сохраняет <strong>ваши текущие настройки цветов, формы колбы и запечённую траекторию всех капель</strong> в генератор <code class="text-orange-300">.blend</code> (нативные <code class="text-orange-300">MBall</code> + шейдеры SSS) или в <code class="text-indigo-300">.gltf</code>.
+          </p>
+
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <label for="sliderExportFrames" class="text-slate-300">Длительность запекаемой анимации</label>
+              <span id="valExportFrames" class="mono text-orange-300 font-semibold">240 кадров (10 сек)</span>
+            </div>
+            <input id="sliderExportFrames" type="range" min="120" max="600" step="60" value="240" />
+          </div>
+
+          <div class="space-y-2 pt-1">
+            <button id="btnPanelExportPy" class="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-400 hover:to-rose-500 text-white font-semibold text-xs shadow-lg shadow-rose-600/25 flex items-center justify-center gap-2 transition">
+              <span>📥 Скачать генератор .blend (.py со всей физикой)</span>
+            </button>
+            <button id="btnPanelExportGltf" class="w-full py-2 px-3 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/45 border border-indigo-400/40 text-indigo-100 font-semibold text-xs flex items-center justify-center gap-2 transition">
+              <span>📦 Скачать готовую 3D-модель (.gltf с анимацией)</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- Модальное окно инструкции и кода для Blender -->
+  <div id="blenderModal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
+    <div class="glass-panel rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-white/15">
+      <div class="px-4 py-3 sm:px-5 sm:py-4 border-b border-white/10 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="text-lg sm:text-xl shrink-0">🟠</span>
+          <h2 class="text-xs sm:text-base font-bold text-white truncate">Перенос 3D-лавовой лампы с физикой в Blender</h2>
+        </div>
+        <button id="btnCloseModal" class="text-slate-400 hover:text-white text-xs sm:text-sm px-2.5 py-1 rounded-lg bg-white/5 shrink-0">✕ Закрыть</button>
+      </div>
+      <div class="p-4 sm:p-5 overflow-y-auto custom-scroll space-y-4 text-xs text-slate-300 leading-relaxed">
+        <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3.5 text-emerald-200">
+          <strong>Два способа открытия в Blender (3.x / 4.x / 5.x):</strong>
+          <ul class="list-disc pl-5 mt-1.5 space-y-1">
+            <li><strong>Способ 1 — Нативный генератор <code>.py → .blend</code> (Рекомендуется):</strong> создаёт внутри Blender настоящие метаболы (<code>bpy.data.metaballs</code>), которые плавно сливаются и разлипаются в единую бесшовную поверхность воска на каждом кадре, собирает PBR-материалы стекла (IOR 1.52), жидкости и воска с подповерхностным рассеиванием (<code>Subsurface Scattering</code>) и автоматически сохраняет готовый файл <code>lava_lamp_custom_animated.blend</code>!</li>
+            <li><strong>Способ 2 — Прямой импорт <code>.gltf</code>:</strong> открывается через <em>File → Import → glTF 2.0 (.glb/.gltf)</em> с готовой геометрией и 3D-ключами анимации всех капель.</li>
+          </ul>
+        </div>
+
+        <div class="space-y-2">
+          <h3 class="text-sm font-semibold text-white">Как запустить генератор .blend за 5 секунд в Blender:</h3>
+          <ol class="list-decimal pl-5 space-y-1 text-slate-300">
+            <li>Нажмите кнопку <strong>«Скачать для Blender (.py → .blend)»</strong> (скрипт сохранит ваши текущие цвета, форму колбы и запечёт физику движения капель).</li>
+            <li>Откройте <strong>Blender</strong>, перейдите во вкладку <strong>Scripting</strong> в верхнем меню.</li>
+            <li>Нажмите <strong>Open</strong>, выберите скачанный файл <code>lava_lamp_custom_scene.py</code> (или скопируйте код ниже в буфер обмена и вставьте в редактор Blender).</li>
+            <li>Нажмите кнопку <strong>Run Script (▶)</strong> — вся 3D-модель с материалами и анимацией построится автоматически и сохранится в готовый файл <code>.blend</code>!</li>
+          </ol>
+        </div>
+
+        <div class="space-y-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="font-semibold text-orange-300">Предпросмотр Python-кода Blender (с вашими параметрами):</span>
+            <button id="btnCopyBlenderCode" class="px-3 py-1.5 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/40 text-orange-200 font-semibold transition">
+              📋 Скопировать код скрипта
+            </button>
+          </div>
+          <textarea id="blenderCodePreview" readonly class="w-full h-44 rounded-xl bg-black/70 border border-white/10 p-3 mono text-[11px] text-slate-300 focus:outline-none custom-scroll"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Всплывающее уведомление (Toast) -->
+  <div id="toastNotice" class="pointer-events-none fixed top-16 left-1/2 -translate-x-1/2 z-50 opacity-0 -translate-y-2 transition-all duration-300 glass-panel px-4 py-2 rounded-xl border border-orange-500/40 text-xs font-medium text-orange-200 shadow-xl whitespace-nowrap">
+    Готово!
+  </div>
+
+  <script>
+    // ============================================================================
+    // 1. ТАБЛИЦЫ MARCHING CUBES (ПОЛНАЯ ТОПОЛОГИЯ ИЗОПОВЕРХНОСТИ СКАЛЯРНОГО ПОЛЯ)
+    // ============================================================================
+    const MC_EDGE_TABLE = new Int32Array([
+      0x0, 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c,
+      0x80c, 0x905, 0xa0f, 0xb06, 0xc0a, 0xd03, 0xe09, 0xf00,
+      0x190, 0x99, 0x393, 0x29a, 0x596, 0x49f, 0x795, 0x69c,
+      0x99c, 0x895, 0xb9f, 0xa96, 0xd9a, 0xc93, 0xf99, 0xe90,
+      0x230, 0x339, 0x33, 0x13a, 0x636, 0x73f, 0x435, 0x53c,
+      0xa3c, 0xb35, 0x83f, 0x936, 0xe3a, 0xf33, 0xc39, 0xd30,
+      0x3a0, 0x2a9, 0x1a3, 0xaa, 0x7a6, 0x6af, 0x5a5, 0x4ac,
+      0xbac, 0xaa5, 0x9af, 0x8a6, 0xfaa, 0xea3, 0xda9, 0xca0,
+      0x460, 0x569, 0x663, 0x76a, 0x66, 0x16f, 0x265, 0x36c,
+      0xc6c, 0xd65, 0xe6f, 0xf66, 0x86a, 0x963, 0xa69, 0xb60,
+      0x5f0, 0x4f9, 0x7f3, 0x6fa, 0x1f6, 0xff, 0x3f5, 0x2fc,
+      0xdfc, 0xcf5, 0xfff, 0xef6, 0x9fa, 0x8f3, 0xbf9, 0xaf0,
+      0x650, 0x759, 0x453, 0x55a, 0x256, 0x35f, 0x55, 0x15c,
+      0xe5c, 0xf55, 0xc5f, 0xd56, 0xa5a, 0xb53, 0x859, 0x950,
+      0x7c0, 0x6c9, 0x5c3, 0x4ca, 0x3c6, 0x2cf, 0x1c5, 0xcc,
+      0xfcc, 0xec5, 0xdcf, 0xcc6, 0xbca, 0xac3, 0x9c9, 0x8c0,
+      0x8c0, 0x9c9, 0xac3, 0xbca, 0xcc6, 0xdcf, 0xec5, 0xfcc,
+      0xcc, 0x1c5, 0x2cf, 0x3c6, 0x4ca, 0x5c3, 0x6c9, 0x7c0,
+      0x950, 0x859, 0xb53, 0xa5a, 0xd56, 0xc5f, 0xf55, 0xe5c,
+      0x15c, 0x55, 0x35f, 0x256, 0x55a, 0x453, 0x759, 0x650,
+      0xaf0, 0xbf9, 0x8f3, 0x9fa, 0xef6, 0xfff, 0xcf5, 0xdfc,
+      0x2fc, 0x3f5, 0xff, 0x1f6, 0x6fa, 0x7f3, 0x4f9, 0x5f0,
+      0xb60, 0xa69, 0x963, 0x86a, 0xf66, 0xe6f, 0xd65, 0xc6c,
+      0x36c, 0x265, 0x16f, 0x66, 0x76a, 0x663, 0x569, 0x460,
+      0xca0, 0xda9, 0xea3, 0xfaa, 0x8a6, 0x9af, 0xaa5, 0xbac,
+      0x4ac, 0x5a5, 0x6af, 0x7a6, 0xaa, 0x1a3, 0x2a9, 0x3a0,
+      0xd30, 0xc39, 0xf33, 0xe3a, 0x936, 0x83f, 0xb35, 0xa3c,
+      0x53c, 0x435, 0x73f, 0x636, 0x13a, 0x33, 0x339, 0x230,
+      0xe90, 0xf99, 0xc93, 0xd9a, 0xa96, 0xb9f, 0x895, 0x99c,
+      0x69c, 0x795, 0x49f, 0x596, 0x29a, 0x393, 0x99, 0x190,
+      0xf00, 0xe09, 0xd03, 0xc0a, 0xb06, 0xa0f, 0x905, 0x80c,
+      0x70c, 0x605, 0x50f, 0x406, 0x30a, 0x203, 0x109, 0x0
+    ]);
+
+    const MC_TRI_TABLE = new Int8Array([
+      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      0, 1, 9, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      1, 8, 3, 9, 8, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      1, 2, 10, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      0, 8, 3, 1, 2, 10, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      9, 2, 10, 0, 2, 9, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      2, 8, 3, 2, 10, 8, 10, 9, 8, -1, -1, -1, -1, -1, -1, -1,
+      3, 11, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      0, 11, 2, 8, 11, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      1, 9, 0, 2, 3, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      1, 11, 2, 1, 9, 11, 9, 8, 11, -1, -1, -1, -1, -1, -1, -1,
+      3, 10, 1, 11, 10, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      0, 10, 1, 0, 8, 10, 8, 11, 10, -1, -1, -1, -1, -1, -1, -1,
+      3, 9, 0, 3, 11, 9, 11, 10, 9, -1, -1, -1, -1, -1, -1, -1,
+      9, 8, 10, 10, 8, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      4, 7, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      4, 3, 0, 7, 3, 4, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      0, 1, 9, 8, 4, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      4, 1, 9, 4, 7, 1, 7, 3, 1, -1, -1, -1, -1, -1, -1, -1,
+      1, 2, 10, 8, 4, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      3, 4, 7, 3, 0, 4, 1, 2, 10, -1, -1, -1, -1, -1, -1, -1,
+      9, 2, 10, 9, 0, 2, 8, 4, 7, -1, -1, -1, -1, -1, -1, -1,
+      2, 10, 9, 2, 9, 7, 2, 7, 3, 7, 9, 4, -1, -1, -1, -1,
+      8, 4, 7, 3, 11, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      11, 4, 7, 11, 2, 4, 2, 0, 4, -1, -1, -1, -1, -1, -1, -1,
+      9, 0, 1, 8, 4, 7, 2, 3, 11, -1, -1, -1, -1, -1, -1, -1,
+      4, 7, 11, 9, 4, 11, 9, 11, 2, 9, 2, 1, -1, -1, -1, -1,
+      3, 10, 1, 3, 11, 10, 7, 8, 4, -1, -1, -1, -1, -1, -1, -1,
+      1, 11, 10, 1, 4, 11, 1, 0, 4, 7, 11, 4, -1, -1, -1, -1,
+      4, 7, 8, 9, 0, 11, 9, 11, 10, 11, 0, 3, -1, -1, -1, -1,
+      4, 7, 11, 4, 11, 9, 9, 11, 10, -1, -1, -1, -1, -1, -1, -1,
+      9, 5, 4, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      9, 5, 4, 0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      0, 5, 4, 1, 5, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      8, 5, 4, 8, 3, 5, 3, 1, 5, -1, -1, -1, -1, -1, -1, -1,
+      1, 2, 10, 9, 5, 4, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      3, 0, 8, 1, 2, 10, 4, 9, 5, -1, -1, -1, -1, -1, -1, -1,
+      5, 2, 10, 5, 4, 2, 4, 0, 2, -1, -1, -1, -1, -1, -1, -1,
+      2, 10, 5, 3, 2, 5, 3, 5, 4, 3, 4, 8, -1, -1, -1, -1,
+      9, 5, 4, 2, 3, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      0, 11, 2, 0, 8, 11, 4, 9, 5, -1, -1, -1, -1, -1, -1, -1,
+      0, 5, 4, 0, 1, 5, 2, 3, 11, -1, -1, -1, -1, -1, -1, -1,
+      2, 1, 5, 2, 5, 8, 2, 8, 11, 4, 8, 5, -1, -1, -1, -1,
+      10, 3, 11, 10, 1, 3, 9, 5, 4, -1, -1, -1, -1, -1, -1, -1,
+      4, 9, 5, 0, 8, 1, 8, 10, 1, 8, 11, 10, -1, -1, -1, -1,
+      5, 4, 0, 5, 0, 11, 5, 11, 10, 11, 0, 3, -1, -1, -1, -1,
+      5, 4, 8, 5, 8, 10, 10, 8, 11, -1, -1, -1, -1, -1, -1, -1,
+      9, 7, 8, 5, 7, 9, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      9, 3, 0, 9, 5, 3, 5, 7, 3, -1, -1, -1, -1, -1, -1, -1,
+      0, 7, 8, 0, 1, 7, 1, 5, 7, -1, -1, -1, -1, -1, -1, -1,
+      1, 5, 3, 3, 5, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      9, 7, 8, 9, 5, 7, 10, 1, 2, -1, -1, -1, -1, -1, -1, -1,
+      10, 1, 2, 9, 5, 0, 5, 3, 0, 5, 7, 3, -1, -1, -1, -1,
+      8, 0, 2, 8, 2, 5, 8, 5, 7, 10, 5, 2, -1, -1, -1, -1,
+      2, 10, 5, 2, 5, 3, 3, 5, 7, -1, -1, -1, -1, -1, -1, -1,
+      7, 9, 5, 7, 8, 9, 3, 11, 2, -1, -1, -1, -1, -1, -1, -1,
+      9, 5, 7, 9, 7, 2, 9, 2, 0, 2, 7, 11, -1, -1, -1, -1,
+      2, 3, 11, 0, 1, 8, 1, 7, 8, 1, 5, 7, -1, -1, -1, -1,
+      11, 2, 1, 11, 1, 7, 7, 1, 5, -1, -1, -1, -1, -1, -1, -1,
+      9, 5, 8, 8, 5, 7, 10, 1, 3, 10, 3, 11, -1, -1, -1, -1,
+      5, 7, 0, 5, 0, 9, 7, 11, 0, 1, 0, 10, 11, 10, 0, -1,
+      11, 10, 0, 11, 0, 3, 10, 5, 0, 8, 0, 7, 5, 7, 0, -1,
+      11, 10, 5, 7, 11, 5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      10, 6, 5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      0, 8, 3, 5, 10, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      9, 0, 1, 5, 10, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      1, 8, 3, 1, 9, 8, 5, 10, 6, -1, -1, -1, -1, -1, -1, -1,
+      1, 6, 5, 2, 6, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      1, 6, 5, 1, 2, 6, 3, 0, 8, -1, -1, -1, -1, -1, -1, -1,
+      9, 6, 5, 9, 0, 6, 0, 2, 6, -1, -1, -1, -1, -1, -1, -1,
+      5, 9, 8, 5, 8, 2, 5, 2, 6, 3, 2, 8, -1, -1, -1, -1,
+      2, 3, 11, 10, 6, 5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      11, 0, 8, 11, 2, 0, 10, 6, 5, -1, -1, -1, -1, -1, -1, -1,
+      0, 1, 9, 2, 3, 11, 5, 10, 6, -1, -1, -1, -1, -1, -1, -1,
+      5, 10, 6, 1, 9, 2, 9, 11, 2, 9, 8, 11, -1, -1, -1, -1,
+      6, 3, 11, 6, 5, 3, 5, 1, 3, -1, -1, -1, -1, -1, -1, -1,
+      0, 8, 11, 0, 11, 5, 0, 5, 1, 5, 11, 6, -1, -1, -1, -1,
+      3, 11, 6, 0, 3, 6, 0, 6, 5, 0, 5, 9, -1, -1, -1, -1,
+      6, 5, 9, 6, 9, 11, 11, 9, 8, -1, -1, -1, -1, -1, -1, -1,
+      5, 10, 6, 4, 7, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      4, 3, 0, 4, 7, 3, 6, 5, 10, -1, -1, -1, -1, -1, -1, -1,
+      1, 9, 0, 5, 10, 6, 8, 4, 7, -1, -1, -1, -1, -1, -1, -1,
+      10, 6, 5, 1, 9, 7, 1, 7, 3, 7, 9, 4, -1, -1, -1, -1,
+      6, 1, 2, 6, 5, 1, 4, 7, 8, -1, -1, -1, -1, -1, -1, -1,
+      1, 2, 5, 5, 2, 6, 3, 0, 4, 3, 4, 7, -1, -1, -1, -1,
+      8, 4, 7, 9, 0, 5, 0, 6, 5, 0, 2, 6, -1, -1, -1, -1,
+      7, 3, 9, 7, 9, 4, 3, 2, 9, 5, 9, 6, 2, 6, 9, -1,
+      3, 11, 2, 7, 8, 4, 10, 6, 5, -1, -1, -1, -1, -1, -1, -1,
+      5, 10, 6, 4, 7, 2, 4, 2, 0, 2, 7, 11, -1, -1, -1, -1,
+      0, 1, 9, 4, 7, 8, 2, 3, 11, 5, 10, 6, -1, -1, -1, -1,
+      9, 2, 1, 9, 11, 2, 9, 4, 11, 7, 11, 4, 5, 10, 6, -1,
+      8, 4, 7, 3, 11, 5, 3, 5, 1, 5, 11, 6, -1, -1, -1, -1,
+      5, 1, 11, 5, 11, 6, 1, 0, 11, 7, 11, 4, 0, 4, 11, -1,
+      0, 5, 9, 0, 6, 5, 0, 3, 6, 11, 6, 3, 8, 4, 7, -1,
+      6, 5, 9, 6, 9, 11, 4, 7, 9, 7, 11, 9, -1, -1, -1, -1,
+      10, 4, 9, 6, 4, 10, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      4, 10, 6, 4, 9, 10, 0, 8, 3, -1, -1, -1, -1, -1, -1, -1,
+      10, 0, 1, 10, 6, 0, 6, 4, 0, -1, -1, -1, -1, -1, -1, -1,
+      8, 3, 1, 8, 1, 6, 8, 6, 4, 6, 1, 10, -1, -1, -1, -1,
+      1, 4, 9, 1, 2, 4, 2, 6, 4, -1, -1, -1, -1, -1, -1, -1,
+      3, 0, 8, 1, 2, 9, 2, 4, 9, 2, 6, 4, -1, -1, -1, -1,
+      0, 2, 4, 4, 2, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      8, 3, 2, 8, 2, 4, 4, 2, 6, -1, -1, -1, -1, -1, -1, -1,
+      10, 4, 9, 10, 6, 4, 11, 2, 3, -1, -1, -1, -1, -1, -1, -1,
+      0, 8, 2, 2, 8, 11, 4, 9, 10, 4, 10, 6, -1, -1, -1, -1,
+      3, 11, 2, 0, 1, 6, 0, 6, 4, 6, 1, 10, -1, -1, -1, -1,
+      6, 4, 1, 6, 1, 10, 4, 8, 1, 2, 1, 11, 8, 11, 1, -1,
+      9, 6, 4, 9, 3, 6, 9, 1, 3, 11, 6, 3, -1, -1, -1, -1,
+      8, 11, 1, 8, 1, 0, 11, 6, 1, 9, 1, 4, 6, 4, 1, -1,
+      3, 11, 6, 3, 6, 0, 0, 6, 4, -1, -1, -1, -1, -1, -1, -1,
+      6, 4, 8, 11, 6, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      7, 10, 6, 7, 8, 10, 8, 9, 10, -1, -1, -1, -1, -1, -1, -1,
+      0, 7, 3, 0, 10, 7, 0, 9, 10, 6, 7, 10, -1, -1, -1, -1,
+      10, 6, 7, 1, 10, 7, 1, 7, 8, 1, 8, 0, -1, -1, -1, -1,
+      10, 6, 7, 10, 7, 1, 1, 7, 3, -1, -1, -1, -1, -1, -1, -1,
+      1, 2, 6, 1, 6, 8, 1, 8, 9, 8, 6, 7, -1, -1, -1, -1,
+      2, 6, 9, 2, 9, 1, 6, 7, 9, 0, 9, 3, 7, 3, 9, -1,
+      7, 8, 0, 7, 0, 6, 6, 0, 2, -1, -1, -1, -1, -1, -1, -1,
+      7, 3, 2, 6, 7, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      2, 3, 11, 10, 6, 8, 10, 8, 9, 8, 6, 7, -1, -1, -1, -1,
+      2, 0, 7, 2, 7, 11, 0, 9, 7, 6, 7, 10, 9, 10, 7, -1,
+      1, 8, 0, 1, 7, 8, 1, 10, 7, 6, 7, 10, 2, 3, 11, -1,
+      11, 2, 1, 11, 1, 7, 10, 6, 1, 6, 7, 1, -1, -1, -1, -1,
+      8, 9, 6, 8, 6, 7, 9, 1, 6, 11, 6, 3, 1, 3, 6, -1,
+      0, 9, 1, 11, 6, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      7, 8, 0, 7, 0, 6, 3, 11, 0, 11, 6, 0, -1, -1, -1, -1,
+      7, 11, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      7, 6, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      3, 0, 8, 11, 7, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      0, 1, 9, 11, 7, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      8, 1, 9, 8, 3, 1, 11, 7, 6, -1, -1, -1, -1, -1, -1, -1,
+      10, 1, 2, 6, 11, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      1, 2, 10, 3, 0, 8, 6, 11, 7, -1, -1, -1, -1, -1, -1, -1,
+      2, 9, 0, 2, 10, 9, 6, 11, 7, -1, -1, -1, -1, -1, -1, -1,
+      6, 11, 7, 2, 10, 3, 10, 8, 3, 10, 9, 8, -1, -1, -1, -1,
+      7, 2, 3, 6, 2, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      7, 0, 8, 7, 6, 0, 6, 2, 0, -1, -1, -1, -1, -1, -1, -1,
+      2, 7, 6, 2, 3, 7, 0, 1, 9, -1, -1, -1, -1, -1, -1, -1,
+      1, 6, 2, 1, 8, 6, 1, 9, 8, 8, 7, 6, -1, -1, -1, -1,
+      10, 7, 6, 10, 1, 7, 1, 3, 7, -1, -1, -1, -1, -1, -1, -1,
+      10, 7, 6, 1, 7, 10, 1, 8, 7, 1, 0, 8, -1, -1, -1, -1,
+      0, 3, 7, 0, 7, 10, 0, 10, 9, 6, 10, 7, -1, -1, -1, -1,
+      7, 6, 10, 7, 10, 8, 8, 10, 9, -1, -1, -1, -1, -1, -1, -1,
+      6, 8, 4, 11, 8, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      3, 6, 11, 3, 0, 6, 0, 4, 6, -1, -1, -1, -1, -1, -1, -1,
+      8, 6, 11, 8, 4, 6, 9, 0, 1, -1, -1, -1, -1, -1, -1, -1,
+      9, 4, 6, 9, 6, 3, 9, 3, 1, 11, 3, 6, -1, -1, -1, -1,
+      6, 8, 4, 6, 11, 8, 2, 10, 1, -1, -1, -1, -1, -1, -1, -1,
+      1, 2, 10, 3, 0, 11, 0, 6, 11, 0, 4, 6, -1, -1, -1, -1,
+      4, 11, 8, 4, 6, 11, 0, 2, 9, 2, 10, 9, -1, -1, -1, -1,
+      10, 9, 3, 10, 3, 2, 9, 4, 3, 11, 3, 6, 4, 6, 3, -1,
+      8, 2, 3, 8, 4, 2, 4, 6, 2, -1, -1, -1, -1, -1, -1, -1,
+      0, 4, 2, 4, 6, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      1, 9, 0, 2, 3, 4, 2, 4, 6, 4, 3, 8, -1, -1, -1, -1,
+      1, 9, 4, 1, 4, 2, 2, 4, 6, -1, -1, -1, -1, -1, -1, -1,
+      8, 1, 3, 8, 6, 1, 8, 4, 6, 6, 10, 1, -1, -1, -1, -1,
+      10, 1, 0, 10, 0, 6, 6, 0, 4, -1, -1, -1, -1, -1, -1, -1,
+      4, 6, 3, 4, 3, 8, 6, 10, 3, 0, 3, 9, 10, 9, 3, -1,
+      10, 9, 4, 6, 10, 4, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      4, 9, 5, 7, 6, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      0, 8, 3, 4, 9, 5, 11, 7, 6, -1, -1, -1, -1, -1, -1, -1,
+      5, 0, 1, 5, 4, 0, 7, 6, 11, -1, -1, -1, -1, -1, -1, -1,
+      11, 7, 6, 8, 3, 4, 3, 5, 4, 3, 1, 5, -1, -1, -1, -1,
+      9, 5, 4, 10, 1, 2, 7, 6, 11, -1, -1, -1, -1, -1, -1, -1,
+      6, 11, 7, 1, 2, 10, 0, 8, 3, 4, 9, 5, -1, -1, -1, -1,
+      7, 6, 11, 5, 4, 10, 4, 2, 10, 4, 0, 2, -1, -1, -1, -1,
+      3, 4, 8, 3, 5, 4, 3, 2, 5, 10, 5, 2, 11, 7, 6, -1,
+      7, 2, 3, 7, 6, 2, 5, 4, 9, -1, -1, -1, -1, -1, -1, -1,
+      9, 5, 4, 0, 8, 6, 0, 6, 2, 6, 8, 7, -1, -1, -1, -1,
+      3, 6, 2, 3, 7, 6, 1, 5, 0, 5, 4, 0, -1, -1, -1, -1,
+      6, 2, 8, 6, 8, 7, 2, 1, 8, 4, 8, 5, 1, 5, 8, -1,
+      9, 5, 4, 10, 1, 6, 1, 7, 6, 1, 3, 7, -1, -1, -1, -1,
+      1, 6, 10, 1, 7, 6, 1, 0, 7, 8, 7, 0, 9, 5, 4, -1,
+      4, 0, 10, 4, 10, 5, 0, 3, 10, 6, 10, 7, 3, 7, 10, -1,
+      7, 6, 10, 7, 10, 8, 5, 4, 10, 4, 8, 10, -1, -1, -1, -1,
+      6, 9, 5, 6, 11, 9, 11, 8, 9, -1, -1, -1, -1, -1, -1, -1,
+      3, 6, 11, 0, 6, 3, 0, 5, 6, 0, 9, 5, -1, -1, -1, -1,
+      0, 11, 8, 0, 5, 11, 0, 1, 5, 5, 6, 11, -1, -1, -1, -1,
+      6, 11, 3, 6, 3, 5, 5, 3, 1, -1, -1, -1, -1, -1, -1, -1,
+      1, 2, 10, 9, 5, 11, 9, 11, 8, 11, 5, 6, -1, -1, -1, -1,
+      0, 11, 3, 0, 6, 11, 0, 9, 6, 5, 6, 9, 1, 2, 10, -1,
+      11, 8, 5, 11, 5, 6, 8, 0, 5, 10, 5, 2, 0, 2, 5, -1,
+      6, 11, 3, 6, 3, 5, 2, 10, 3, 10, 5, 3, -1, -1, -1, -1,
+      5, 8, 9, 5, 2, 8, 5, 6, 2, 3, 8, 2, -1, -1, -1, -1,
+      9, 5, 6, 9, 6, 0, 0, 6, 2, -1, -1, -1, -1, -1, -1, -1,
+      1, 5, 8, 1, 8, 0, 5, 6, 8, 3, 8, 2, 6, 2, 8, -1,
+      1, 5, 6, 2, 1, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      1, 3, 6, 1, 6, 10, 3, 8, 6, 5, 6, 9, 8, 9, 6, -1,
+      10, 1, 0, 10, 0, 6, 9, 5, 0, 5, 6, 0, -1, -1, -1, -1,
+      0, 3, 8, 5, 6, 10, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      10, 5, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      11, 5, 10, 7, 5, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      11, 5, 10, 11, 7, 5, 8, 3, 0, -1, -1, -1, -1, -1, -1, -1,
+      5, 11, 7, 5, 10, 11, 1, 9, 0, -1, -1, -1, -1, -1, -1, -1,
+      10, 7, 5, 10, 11, 7, 9, 8, 1, 8, 3, 1, -1, -1, -1, -1,
+      11, 1, 2, 11, 7, 1, 7, 5, 1, -1, -1, -1, -1, -1, -1, -1,
+      0, 8, 3, 1, 2, 7, 1, 7, 5, 7, 2, 11, -1, -1, -1, -1,
+      9, 7, 5, 9, 2, 7, 9, 0, 2, 2, 11, 7, -1, -1, -1, -1,
+      7, 5, 2, 7, 2, 11, 5, 9, 2, 3, 2, 8, 9, 8, 2, -1,
+      2, 5, 10, 2, 3, 5, 3, 7, 5, -1, -1, -1, -1, -1, -1, -1,
+      8, 2, 0, 8, 5, 2, 8, 7, 5, 10, 2, 5, -1, -1, -1, -1,
+      9, 0, 1, 5, 10, 3, 5, 3, 7, 3, 10, 2, -1, -1, -1, -1,
+      9, 8, 2, 9, 2, 1, 8, 7, 2, 10, 2, 5, 7, 5, 2, -1,
+      1, 3, 5, 3, 7, 5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      0, 8, 7, 0, 7, 1, 1, 7, 5, -1, -1, -1, -1, -1, -1, -1,
+      9, 0, 3, 9, 3, 5, 5, 3, 7, -1, -1, -1, -1, -1, -1, -1,
+      9, 8, 7, 5, 9, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      5, 8, 4, 5, 10, 8, 10, 11, 8, -1, -1, -1, -1, -1, -1, -1,
+      5, 0, 4, 5, 11, 0, 5, 10, 11, 11, 3, 0, -1, -1, -1, -1,
+      0, 1, 9, 8, 4, 10, 8, 10, 11, 10, 4, 5, -1, -1, -1, -1,
+      10, 11, 4, 10, 4, 5, 11, 3, 4, 9, 4, 1, 3, 1, 4, -1,
+      2, 5, 1, 2, 8, 5, 2, 11, 8, 4, 5, 8, -1, -1, -1, -1,
+      0, 4, 11, 0, 11, 3, 4, 5, 11, 2, 11, 1, 5, 1, 11, -1,
+      0, 2, 5, 0, 5, 9, 2, 11, 5, 4, 5, 8, 11, 8, 5, -1,
+      9, 4, 5, 2, 11, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      2, 5, 10, 3, 5, 2, 3, 4, 5, 3, 8, 4, -1, -1, -1, -1,
+      5, 10, 2, 5, 2, 4, 4, 2, 0, -1, -1, -1, -1, -1, -1, -1,
+      3, 10, 2, 3, 5, 10, 3, 8, 5, 4, 5, 8, 0, 1, 9, -1,
+      5, 10, 2, 5, 2, 4, 1, 9, 2, 9, 4, 2, -1, -1, -1, -1,
+      8, 4, 5, 8, 5, 3, 3, 5, 1, -1, -1, -1, -1, -1, -1, -1,
+      0, 4, 5, 1, 0, 5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      8, 4, 5, 8, 5, 3, 9, 0, 5, 0, 3, 5, -1, -1, -1, -1,
+      9, 4, 5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      4, 11, 7, 4, 9, 11, 9, 10, 11, -1, -1, -1, -1, -1, -1, -1,
+      0, 8, 3, 4, 9, 7, 9, 11, 7, 9, 10, 11, -1, -1, -1, -1,
+      1, 10, 11, 1, 11, 4, 1, 4, 0, 7, 4, 11, -1, -1, -1, -1,
+      3, 1, 4, 3, 4, 8, 1, 10, 4, 7, 4, 11, 10, 11, 4, -1,
+      4, 11, 7, 9, 11, 4, 9, 2, 11, 9, 1, 2, -1, -1, -1, -1,
+      9, 7, 4, 9, 11, 7, 9, 1, 11, 2, 11, 1, 0, 8, 3, -1,
+      11, 7, 4, 11, 4, 2, 2, 4, 0, -1, -1, -1, -1, -1, -1, -1,
+      11, 7, 4, 11, 4, 2, 8, 3, 4, 3, 2, 4, -1, -1, -1, -1,
+      2, 9, 10, 2, 7, 9, 2, 3, 7, 7, 4, 9, -1, -1, -1, -1,
+      9, 10, 7, 9, 7, 4, 10, 2, 7, 8, 7, 0, 2, 0, 7, -1,
+      3, 7, 10, 3, 10, 2, 7, 4, 10, 1, 10, 0, 4, 0, 10, -1,
+      1, 10, 2, 8, 7, 4, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      4, 9, 1, 4, 1, 7, 7, 1, 3, -1, -1, -1, -1, -1, -1, -1,
+      4, 9, 1, 4, 1, 7, 0, 8, 1, 8, 7, 1, -1, -1, -1, -1,
+      4, 0, 3, 7, 4, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      4, 8, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      9, 10, 8, 10, 11, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      3, 0, 9, 3, 9, 11, 11, 9, 10, -1, -1, -1, -1, -1, -1, -1,
+      0, 1, 10, 0, 10, 8, 8, 10, 11, -1, -1, -1, -1, -1, -1, -1,
+      3, 1, 10, 11, 3, 10, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      1, 2, 11, 1, 11, 9, 9, 11, 8, -1, -1, -1, -1, -1, -1, -1,
+      3, 0, 9, 3, 9, 11, 1, 2, 9, 2, 11, 9, -1, -1, -1, -1,
+      0, 2, 11, 8, 0, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      3, 2, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      2, 3, 8, 2, 8, 10, 10, 8, 9, -1, -1, -1, -1, -1, -1, -1,
+      9, 10, 2, 0, 9, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      2, 3, 8, 2, 8, 10, 0, 1, 8, 1, 10, 8, -1, -1, -1, -1,
+      1, 10, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      1, 3, 8, 9, 1, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      0, 9, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      0, 3, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1
+    ]);
+
+    const CUBE_EDGES = [
+      [0,1], [1,2], [2,3], [3,0],
+      [4,5], [5,6], [6,7], [7,4],
+      [0,4], [1,5], [2,6], [3,7]
+    ];
+
+    const PALETTES = {
+      magma:   { hot: "#ff7b00", cold: "#e11d48", liquid: "#240b4c" },
+      cyber:   { hot: "#00f5d4", cold: "#f72585", liquid: "#0d0938" },
+      emerald: { hot: "#d9f99d", cold: "#059669", liquid: "#042f2e" },
+      solar:   { hot: "#fef08a", cold: "#ea580c", liquid: "#3b0714" },
+      plasma:  { hot: "#38bdf8", cold: "#4f46e5", liquid: "#170c3a" },
+      quartz:  { hot: "#fecdd3", cold: "#f43f5e", liquid: "#1f2430" }
+    };
+
+    const METAL_FINISHES = {
+      silver:   { color: "#d4d8e2", roughness: 0.22, metalness: 0.94 },
+      gold:     { color: "#eab308", roughness: 0.26, metalness: 0.92 },
+      copper:   { color: "#ea580c", roughness: 0.24, metalness: 0.93 },
+      obsidian: { color: "#27272a", roughness: 0.34, metalness: 0.82 }
+    };
+
+    const state = {
+      playing: true,
+      timeScale: 1.0,
+      heatPower: 45,
+      surfaceTension: 0.46,
+      coalescence: 1.00,
+      viscosity: 2.40,
+      buoyancy: 1.00,
+      stretchFactor: 1.00,
+      blobCount: 7,
+      blobScale: 1.00,
+      gridResXZ: 40,
+      waxColorHot: "#ff7b00",
+      waxColorCold: "#e11d48",
+      liquidColor: "#240b4c",
+      sssStrength: 0.90,
+      glowStrength: 1.40,
+      glassOpacity: 0.22,
+      bottleShape: "astro",
+      metalFinish: "silver",
+      thermalVision: false,
+      wireframe: false,
+      exportFrames: 240,
+      panelOpen: window.innerWidth >= 1024
+    };
+
+    function getBottleRadius(y, shape = state.bottleShape) {
+      if (shape === "cylinder") {
+        if (y < 0.25) return 0.65 + 0.07 * (y / 0.25);
+        if (y > 2.85) return 0.72 - 0.16 * ((y - 2.85) / 0.35);
+        return 0.72;
+      } else if (shape === "rocket") {
+        if (y < 0.85) {
+          const t = Math.max(0, y / 0.85);
+          return 0.56 + 0.26 * Math.sin(t * Math.PI * 0.5);
+        } else {
+          const t = Math.min(1, (y - 0.85) / 2.31);
+          return 0.82 * (1.0 - 0.56 * Math.pow(t, 1.38));
+        }
+      } else {
+        if (y < 0.76) {
+          const t = Math.max(0, y / 0.76);
+          return 0.58 + 0.19 * Math.sin(t * Math.PI * 0.5);
+        } else {
+          const t = Math.min(1, (y - 0.76) / 2.36);
+          return 0.77 - 0.33 * Math.pow(t, 1.15);
+        }
+      }
+    }
+
+    // ============================================================================
+    // 2. РЕАЛИСТИЧНАЯ МЕДЛЕННАЯ ФИЗИКА КАПЕЛЬ:
+    //    - 100% КАПЕЛЬ СВОБОДНО ДВИЖУТСЯ (НИ ОДНОЙ ЗАСТЫВШЕЙ КАПЛИ СНИЗУ ИЛИ СВЕРХУ!)
+    //    - ЧИСТЫЙ ЗАЗОР ОТ ВНУТРЕННЕГО ДНА ЛАМПЫ (y >= 0.54, НИКАКИХ НАЛОЖЕНИЙ НА ДНО!)
+    //    - МЕДЛЕННОЕ ПЛАВНОЕ ДВИЖЕНИЕ С ОРГАНИЧЕСКОЙ 3D-ДЕФОРМАЦИЕЙ И ПОКАЧИВАНИЕМ
+    // ============================================================================
+    const blobs = [];
+
+    // Все капли (включая 0-ю!) — полностью свободные конвективные сгустки разных размеров и скоростей
+    const DROPLET_PRESETS = [
+      { r: 0.22, phase: 0.25, speed: 0.78, orbit: 0.055, wobbleFreq: 1.05 },
+      { r: 0.20, phase: 1.85, speed: 0.94, orbit: 0.065, wobbleFreq: 1.22 },
+      { r: 0.18, phase: 3.55, speed: 1.12, orbit: 0.070, wobbleFreq: 1.38 },
+      { r: 0.17, phase: 0.95, speed: 1.02, orbit: 0.060, wobbleFreq: 1.16 },
+      { r: 0.16, phase: 4.85, speed: 1.22, orbit: 0.068, wobbleFreq: 1.48 },
+      { r: 0.15, phase: 2.75, speed: 1.32, orbit: 0.058, wobbleFreq: 1.60 },
+      { r: 0.14, phase: 4.20, speed: 1.42, orbit: 0.062, wobbleFreq: 1.72 },
+      { r: 0.17, phase: 0.65, speed: 0.84, orbit: 0.060, wobbleFreq: 1.12 },
+      { r: 0.15, phase: 2.35, speed: 1.18, orbit: 0.065, wobbleFreq: 1.54 },
+      { r: 0.14, phase: 5.45, speed: 1.28, orbit: 0.058, wobbleFreq: 1.65 },
+      { r: 0.16, phase: 1.45, speed: 0.96, orbit: 0.064, wobbleFreq: 1.30 },
+      { r: 0.13, phase: 3.20, speed: 1.36, orbit: 0.060, wobbleFreq: 1.78 }
+    ];
+
+    function createFreeDroplet(idx) {
+      const spec = DROPLET_PRESETS[idx % DROPLET_PRESETS.length];
+      const ang = spec.phase + Math.floor(idx / DROPLET_PRESETS.length) * 0.95;
+      // Чистая гармоническая траектория без плоских «залипающих» полок сверху и снизу!
+      const u = 0.5 * (1.0 - Math.cos(ang));
+      const yMin = 0.54;
+      const ySpan = 2.04; // y от 0.54 до 2.58 — вдали от дна (0.08) и крышки (3.10)
+      const y = yMin + u * ySpan;
+      const midEnv = Math.sin(u * Math.PI);
+      const x = Math.cos(ang * 0.75 + idx * 1.4) * spec.orbit * (0.40 + 0.60 * midEnv);
+      const z = Math.sin(ang * 0.65 + idx * 2.1) * spec.orbit * (0.40 + 0.60 * midEnv);
+
+      return {
+        baseR: spec.r,
+        phase: ang,
+        wobblePhase: idx * 1.7 + 0.5,
+        wobbleFreq: spec.wobbleFreq,
+        speedMult: spec.speed,
+        orbitR: spec.orbit,
+        x: x,
+        y: y,
+        z: z,
+        vx: 0.0,
+        vy: 0.0,
+        vz: 0.0,
+        sx: 1.0,
+        sy: 1.0,
+        sz: 1.0,
+        tiltX: 0.0,
+        tiltZ: 0.0,
+        taper: 0.0,
+        temp: 1.0 - u * 0.8
+      };
+    }
+
+    function initBlobs(count = state.blobCount) {
+      blobs.length = 0;
+      for (let i = 0; i < count; i++) {
+        blobs.push(createFreeDroplet(i));
+      }
+    }
+
+    initBlobs(state.blobCount);
+    let simTime = 0.0;
+
+    function stepPhysics(dt, targetBlobs = blobs, currentParams = state) {
+      const substeps = 4;
+      const subDt = (dt * currentParams.timeScale) / substeps;
+      if (subDt <= 0) return;
+
+      const heatNorm = currentParams.heatPower / 45.0;
+      const viscDrag = currentParams.viscosity;
+      const buoyScale = currentParams.buoyancy;
+      const coalPull = currentParams.coalescence;
+      const stretchGain = currentParams.stretchFactor;
+      const scaleMul = currentParams.blobScale;
+
+      // При низком нагреве высота подъёма плавно снижается, но даже на минимуме капли не стоят мёртво
+      const heightEnvelope = Math.min(1.06, Math.max(0.32, (currentParams.heatPower - 10.0) / 35.0));
+      // Медленная гипнотическая базовая частота (в 2.7 раза медленнее прежней!), как у настоящей лавовой лампы
+      const baseOmega = 0.19 * Math.pow(heatNorm, 0.82) * (2.40 / Math.max(0.9, viscDrag));
+
+      for (let s = 0; s < substeps; s++) {
+        simTime += subDt;
+
+        for (let i = 0; i < targetBlobs.length; i++) {
+          const b = targetBlobs[i];
+          const rEff = b.baseR * scaleMul;
+
+          // 1. Непрерывный медленный цикл всплытия и опускания (без зависания сверху и снизу!)
+          b.phase += subDt * baseOmega * b.speedMult;
+          b.wobblePhase += subDt * (0.95 + 0.35 * heatNorm) * b.wobbleFreq;
+
+          const ang = b.phase;
+          // Мягкая гармоническая волна + лёгкая вторая гармоника, чтобы подъём и спуск были плавными и живыми
+          const u = Math.max(0.0, Math.min(1.0, 0.5 * (1.0 - Math.cos(ang - 0.10 * Math.sin(ang)))));
+          const climbDir = Math.sin(ang); // > 0 когда капля плывёт вверх, < 0 когда опускается вниз
+
+          // Нижняя граница yMin = 0.54 гарантирует, что нижний край капли (y - 1.42*rEff ≈ 0.26)
+          // ВСЕГДА находится минимум на 0.18 выше внутреннего дна колбы (y = 0.08)!
+          const yMin = 0.54;
+          const travelSpan = Math.min(2.04, 2.02 * heightEnvelope * buoyScale);
+          const yTarget = yMin + u * travelSpan;
+
+          // Плавное S-образное покачивание из стороны в сторону при подъёме и спуске
+          const midEnv = Math.sin(u * Math.PI);
+          const swayX = Math.cos(ang * 0.72 + i * 1.45) * b.orbitR * (0.42 + 0.58 * midEnv)
+                      + 0.032 * Math.sin(b.wobblePhase * 0.85 + i);
+          const swayZ = Math.sin(ang * 0.64 + i * 2.25) * b.orbitR * (0.42 + 0.58 * midEnv)
+                      + 0.032 * Math.cos(b.wobblePhase * 0.78 + i * 1.3);
+
+          // Мягкая пружинящая связь с конвективным потоком (никаких резких рывков)
+          let fx = (swayX - b.x) * 2.1;
+          let fy = (yTarget - b.y) * 2.4;
+          let fz = (swayZ - b.z) * 2.1;
+
+          // 2. Межкапельное взаимодействие: плавное слияние перешейками и синхронизация формы при сближении
+          for (let j = 0; j < targetBlobs.length; j++) {
+            if (i === j) continue;
+            const o = targetBlobs[j];
+            const rOther = o.baseR * scaleMul;
+            const dx = o.x - b.x;
+            const dy = o.y - b.y;
+            const dz = o.z - b.z;
+            const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) + 1e-5;
+            const sumR = rEff + rOther;
+
+            if (dist < sumR * 0.52) {
+              const rep = (sumR * 0.52 - dist) * 1.15;
+              fx -= (dx / dist) * rep;
+              fz -= (dz / dist) * rep;
+            } else if (dist < sumR * 1.55) {
+              const bridge = Math.sin(((dist - sumR * 0.52) / (sumR * 1.03)) * Math.PI);
+              const pull = 0.24 * coalPull * bridge;
+              fx += (dx / dist) * pull;
+              fz += (dz / dist) * pull;
+            }
+
+            // При сближении капель плавно выравниваем их коэффициенты деформации, чтобы слияние было 100% однородным
+            if (dist < sumR * 1.55) {
+              const align = (1.0 - dist / (sumR * 1.55)) * 3.5 * subDt;
+              b.sy += (o.sy - b.sy) * align;
+              b.sx += (o.sx - b.sx) * align;
+              b.sz += (o.sz - b.sz) * align;
+            }
+          }
+
+          // 3. Интегрирование с высокой вязкостью жидкости
+          const damping = Math.exp(-viscDrag * 1.35 * subDt);
+          b.vx = (b.vx + fx * subDt) * damping;
+          b.vy = (b.vy + fy * subDt) * damping;
+          b.vz = (b.vz + fz * subDt) * damping;
+
+          b.x += b.vx * subDt;
+          b.y += b.vy * subDt;
+          b.z += b.vz * subDt;
+
+          // 4. Строгие границы вдали от внутреннего дна (y >= 0.52) и верха (y <= 2.60)
+          const minY = 0.52;
+          const maxY = 2.60;
+          if (b.y < minY) {
+            b.y = minY;
+            if (b.vy < 0) b.vy *= -0.15;
+          } else if (b.y > maxY) {
+            b.y = maxY;
+            if (b.vy > 0) b.vy *= -0.15;
+          }
+
+          const maxR = Math.max(0.04, getBottleRadius(b.y, currentParams.bottleShape) - rEff * 1.52 - 0.05);
+          const rHoriz = Math.hypot(b.x, b.z);
+          if (rHoriz > maxR) {
+            const sc = maxR / rHoriz;
+            b.x *= sc;
+            b.z *= sc;
+            b.vx *= -0.25;
+            b.vz *= -0.25;
+          }
+
+          // 5. Органическая желейная 3D-деформация при всплытии и опускании:
+          //    - плавное волнообразное колебание высоты (sy) и асимметричное дыхание ширины (sx != sz)
+          //    - мягкий наклон оси капли (tiltX, tiltZ) по ходу изгиба траектории
+          //    - каплевидная (грушевидная) асимметрия верха и низа (taper)
+          const w1 = Math.sin(b.wobblePhase);
+          const w2 = Math.cos(b.wobblePhase * 0.78 + i * 0.9);
+          const w3 = Math.sin(b.wobblePhase * 1.32 + i * 1.7);
+
+          let targetSy = 0.86 + (0.28 * midEnv + 0.11 * w1 + 0.05 * w3) * stretchGain;
+          targetSy = Math.max(0.74, Math.min(1.36, targetSy));
+          b.sy += (targetSy - b.sy) * 4.2 * subDt;
+
+          const invRoot = 1.0 / Math.sqrt(b.sy);
+          const asym = 0.095 * stretchGain * w2;
+          b.sx = invRoot * (1.0 + asym);
+          b.sz = invRoot * (1.0 - asym);
+
+          // Плавное покачивание наклона капли (±15°) и грушевидности во время движения
+          b.tiltX = (0.22 * Math.sin(b.wobblePhase * 0.68 + i) + b.vx * 0.45) * stretchGain;
+          b.tiltZ = (0.22 * Math.cos(b.wobblePhase * 0.61 + i * 1.4) + b.vz * 0.45) * stretchGain;
+          b.taper = (0.16 * climbDir * midEnv + 0.08 * w1) * stretchGain;
+
+          b.temp = Math.max(0.08, Math.min(0.98, 1.0 - u * 0.82));
+        }
+      }
+    }
+
+    // ============================================================================
+    // 3. ИНИЦИАЛИЗАЦИЯ СЦЕНЫ THREE.JS, АДАПТИВНОЙ КАМЕРЫ, СВЕТА И ШЕЙДЕРОВ
+    // ============================================================================
+    const container = document.getElementById("canvasContainer");
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x07060d);
+    scene.fog = new THREE.FogExp2(0x07060d, 0.042);
+
+    const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
+    const camOrbit = {
+      theta: 0.35,
+      phi: 1.42,
+      radius: 7.0,
+      targetY: 1.25,
+      dragging: false,
+      pinching: false,
+      lastPinchDist: 0,
+      lastX: 0,
+      lastY: 0
+    };
+
+    function getIdealCameraRadius() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const aspect = w / Math.max(1, h);
+      if (aspect < 0.65) return 8.6;       // Узкий вертикальный экран телефона
+      if (aspect < 1.0)  return 7.6;       // Планшет / телефон портрет
+      if (h < 520)       return 6.6;       // Телефон горизонтально (landscape)
+      return 6.8;                          // ПК
+    }
+    camOrbit.radius = getIdealCameraRadius();
+
+    function updateCameraTransform() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      camera.aspect = w / Math.max(1, h);
+
+      const isLandscapeDrawer = (w >= 1024) || (w > h && h <= 540);
+      if (state.panelOpen && isLandscapeDrawer) {
+        const drawerW = w >= 1024 ? 380 : 310;
+        camera.setViewOffset(w, h, Math.round(drawerW * 0.42), 0, w, h);
+      } else if (state.panelOpen && w < 1024 && h > w) {
+        camera.setViewOffset(w, h, 0, Math.round(h * 0.16), w, h);
+      } else {
+        camera.clearViewOffset();
+      }
+
+      camera.updateProjectionMatrix();
+
+      const sinP = Math.sin(camOrbit.phi);
+      const cosP = Math.cos(camOrbit.phi);
+      camera.position.x = camOrbit.radius * sinP * Math.sin(camOrbit.theta);
+      camera.position.y = camOrbit.targetY + camOrbit.radius * cosP;
+      camera.position.z = camOrbit.radius * sinP * Math.cos(camOrbit.theta);
+      camera.lookAt(0, camOrbit.targetY, 0);
+    }
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.18;
+    container.appendChild(renderer.domElement);
+
+    function createStudioEnvMap() {
+      const envCanvas = document.createElement("canvas");
+      envCanvas.width = 512;
+      envCanvas.height = 256;
+      const ctx = envCanvas.getContext("2d");
+
+      const grad = ctx.createLinearGradient(0, 0, 0, 256);
+      grad.addColorStop(0.0, "#1e1b4b");
+      grad.addColorStop(0.45, "#0f172a");
+      grad.addColorStop(0.55, "#181028");
+      grad.addColorStop(1.0, "#2e1018");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 512, 256);
+
+      const strips = [
+        { x: 90, w: 28, alpha: 0.92, color: "#ffffff" },
+        { x: 140, w: 10, alpha: 0.55, color: "#e0e7ff" },
+        { x: 360, w: 36, alpha: 0.78, color: "#fef3c7" },
+        { x: 420, w: 12, alpha: 0.45, color: "#fda4af" }
+      ];
+      for (const st of strips) {
+        const sg = ctx.createLinearGradient(st.x, 20, st.x + st.w, 220);
+        sg.addColorStop(0, "rgba(255,255,255,0)");
+        sg.addColorStop(0.5, st.color);
+        sg.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.globalAlpha = st.alpha;
+        ctx.fillStyle = sg;
+        ctx.fillRect(st.x, 18, st.w, 210);
+      }
+      ctx.globalAlpha = 1.0;
+
+      const tex = new THREE.CanvasTexture(envCanvas);
+      tex.mapping = THREE.EquirectangularReflectionMapping;
+      return tex;
+    }
+
+    const studioEnvMap = createStudioEnvMap();
+    scene.environment = studioEnvMap;
+
+    const lampGroup = new THREE.Group();
+    scene.add(lampGroup);
+
+    const ambientLight = new THREE.AmbientLight(0x2a1f3d, 0.85);
+    scene.add(ambientLight);
+
+    const bulbLight = new THREE.PointLight(0xff7b1a, 2.8, 9.0, 1.5);
+    bulbLight.position.set(0, 0.16, 0);
+    lampGroup.add(bulbLight);
+
+    const midLavaLight = new THREE.PointLight(0xff2a55, 1.45, 7.5, 1.6);
+    midLavaLight.position.set(0, 1.55, 0);
+    lampGroup.add(midLavaLight);
+
+    const rimLight1 = new THREE.DirectionalLight(0xc7d2fe, 1.25);
+    rimLight1.position.set(-4.5, 5.0, 3.5);
+    scene.add(rimLight1);
+
+    const rimLight2 = new THREE.DirectionalLight(0xfecdd3, 0.85);
+    rimLight2.position.set(4.5, 3.2, -3.0);
+    scene.add(rimLight2);
+
+    const pedestalGeo = new THREE.CylinderGeometry(3.6, 3.9, 0.18, 64);
+    const pedestalMat = new THREE.MeshStandardMaterial({
+      color: 0x0e0d18,
+      roughness: 0.35,
+      metalness: 0.45,
+      envMap: studioEnvMap,
+      envMapIntensity: 0.6
+    });
+    const pedestalMesh = new THREE.Mesh(pedestalGeo, pedestalMat);
+    pedestalMesh.position.y = -1.54;
+    lampGroup.add(pedestalMesh);
+
+    function createCausticsTexture() {
+      const c = document.createElement("canvas");
+      c.width = 256;
+      c.height = 256;
+      const ctx = c.getContext("2d");
+      const rg = ctx.createRadialGradient(128, 128, 8, 128, 128, 126);
+      rg.addColorStop(0.0, "rgba(255, 140, 40, 0.65)");
+      rg.addColorStop(0.38, "rgba(244, 45, 95, 0.32)");
+      rg.addColorStop(0.72, "rgba(120, 20, 180, 0.10)");
+      rg.addColorStop(1.0, "rgba(0, 0, 0, 0.0)");
+      ctx.fillStyle = rg;
+      ctx.fillRect(0, 0, 256, 256);
+      return new THREE.CanvasTexture(c);
+    }
+
+    const causticsPlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(5.2, 5.2),
+      new THREE.MeshBasicMaterial({
+        map: createCausticsTexture(),
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      })
+    );
+    causticsPlane.rotation.x = -Math.PI / 2;
+    causticsPlane.position.y = -1.445;
+    lampGroup.add(causticsPlane);
+
+    // ============================================================================
+    // 4. ЧИСТАЯ ГЕОМЕТРИЯ ЛАМПЫ (БЕЗ ПЕРЕСЕЧЕНИЙ С КАПЛЯМИ!)
+    // ============================================================================
+    function createBrushedMetalBump() {
+      const c = document.createElement("canvas");
+      c.width = 256;
+      c.height = 256;
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#808080";
+      ctx.fillRect(0, 0, 256, 256);
+      for (let y = 0; y < 256; y++) {
+        const v = 115 + Math.floor(Math.random() * 26);
+        ctx.fillStyle = `rgb(${v},${v},${v})`;
+        ctx.fillRect(0, y, 256, 1);
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(1, 3);
+      return tex;
+    }
+
+    const metalBumpTex = createBrushedMetalBump();
+
+    const metalMaterial = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(METAL_FINISHES.silver.color),
+      metalness: METAL_FINISHES.silver.metalness,
+      roughness: METAL_FINISHES.silver.roughness,
+      bumpMap: metalBumpTex,
+      bumpScale: 0.003,
+      envMap: studioEnvMap,
+      envMapIntensity: 1.35,
+      side: THREE.FrontSide
+    });
+
+    const glassOuterMaterial = new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color(state.liquidColor).lerp(new THREE.Color(0xffffff), 0.68),
+      emissive: new THREE.Color(state.liquidColor).multiplyScalar(0.18),
+      roughness: 0.03,
+      metalness: 0.04,
+      transparent: true,
+      opacity: state.glassOpacity,
+      envMap: studioEnvMap,
+      envMapIntensity: 1.85,
+      reflectivity: 0.95,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.02,
+      depthWrite: false,
+      side: THREE.FrontSide
+    });
+
+    const coilMaterial = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(state.waxColorHot).lerp(new THREE.Color(0xffffff), 0.32),
+      emissive: new THREE.Color(state.waxColorHot),
+      emissiveIntensity: 0.78,
+      metalness: 0.88,
+      roughness: 0.20,
+      envMap: studioEnvMap,
+      envMapIntensity: 1.45
+    });
+
+    function createHelicalCoilGeometry(majorR = 0.42, minorR = 0.035, turns = 22, wireR = 0.011, yCenter = 0.125) {
+      class HelicalTorusCurve extends THREE.Curve {
+        getPoint(t, optionalTarget = new THREE.Vector3()) {
+          const u = t * Math.PI * 2.0;
+          const w = u * turns;
+          const r = majorR + minorR * Math.cos(w);
+          const x = r * Math.cos(u);
+          const y = yCenter + minorR * Math.sin(w);
+          const z = r * Math.sin(u);
+          return optionalTarget.set(x, y, z);
+        }
+      }
+      return new THREE.TubeGeometry(new HelicalTorusCurve(), turns * 14, wireR, 8, true);
+    }
+
+    const vesselHardwareGroup = new THREE.Group();
+    lampGroup.add(vesselHardwareGroup);
+
+    function rebuildLampHardware(shape = state.bottleShape) {
+      while (vesselHardwareGroup.children.length > 0) {
+        const ch = vesselHardwareGroup.children.pop();
+        if (ch.geometry) ch.geometry.dispose();
+      }
+
+      const rSeat = getBottleRadius(0.08, shape) + 0.022;
+
+      const basePts = [];
+      if (shape === "cylinder") {
+        basePts.push(
+          new THREE.Vector2(0.00, -1.45),
+          new THREE.Vector2(0.84, -1.45),
+          new THREE.Vector2(0.84, -1.36),
+          new THREE.Vector2(0.76, -1.32),
+          new THREE.Vector2(rSeat + 0.02, 0.04),
+          new THREE.Vector2(rSeat, 0.08),
+          new THREE.Vector2(rSeat - 0.06, 0.08),
+          new THREE.Vector2(0.00, 0.08)
+        );
+      } else if (shape === "rocket") {
+        basePts.push(
+          new THREE.Vector2(0.00, -1.45),
+          new THREE.Vector2(0.95, -1.45),
+          new THREE.Vector2(0.92, -1.34),
+          new THREE.Vector2(0.46, -0.58),
+          new THREE.Vector2(0.44, -0.50),
+          new THREE.Vector2(rSeat + 0.02, 0.04),
+          new THREE.Vector2(rSeat, 0.08),
+          new THREE.Vector2(rSeat - 0.06, 0.08),
+          new THREE.Vector2(0.00, 0.08)
+        );
+      } else {
+        basePts.push(
+          new THREE.Vector2(0.00, -1.45),
+          new THREE.Vector2(0.88, -1.45),
+          new THREE.Vector2(0.90, -1.40),
+          new THREE.Vector2(0.85, -1.34),
+          new THREE.Vector2(0.50, -0.58),
+          new THREE.Vector2(0.47, -0.52),
+          new THREE.Vector2(0.51, -0.45),
+          new THREE.Vector2(rSeat + 0.02, 0.04),
+          new THREE.Vector2(rSeat, 0.08),
+          new THREE.Vector2(rSeat - 0.06, 0.08),
+          new THREE.Vector2(0.00, 0.08)
+        );
+      }
+      const baseGeo = new THREE.LatheGeometry(basePts, 80);
+      const baseMesh = new THREE.Mesh(baseGeo, metalMaterial);
+      vesselHardwareGroup.add(baseMesh);
+
+      const glassPts = [];
+      const steps = 48;
+      for (let i = 0; i <= steps; i++) {
+        const y = 0.085 + (i / steps) * (3.10 - 0.085);
+        const rInner = getBottleRadius(y, shape);
+        glassPts.push(new THREE.Vector2(rInner + 0.018, y));
+      }
+
+      const glassGeo = new THREE.LatheGeometry(glassPts, 80);
+      const glassMesh = new THREE.Mesh(glassGeo, glassOuterMaterial);
+      glassMesh.name = "InteractiveGlassVessel";
+      glassMesh.renderOrder = 3;
+      vesselHardwareGroup.add(glassMesh);
+
+      const rTop = getBottleRadius(3.10, shape) + 0.022;
+      const capPts = [new THREE.Vector2(0.00, 3.10), new THREE.Vector2(rTop, 3.10)];
+      if (shape === "rocket") {
+        capPts.push(
+          new THREE.Vector2(rTop + 0.02, 3.12),
+          new THREE.Vector2(rTop * 0.72, 3.65),
+          new THREE.Vector2(rTop * 0.28, 4.05),
+          new THREE.Vector2(0.04, 4.28),
+          new THREE.Vector2(0.00, 4.30)
+        );
+      } else if (shape === "cylinder") {
+        capPts.push(
+          new THREE.Vector2(rTop + 0.015, 3.12),
+          new THREE.Vector2(rTop + 0.01, 3.72),
+          new THREE.Vector2(rTop - 0.02, 3.75),
+          new THREE.Vector2(0.00, 3.75)
+        );
+      } else {
+        capPts.push(
+          new THREE.Vector2(rTop + 0.018, 3.12),
+          new THREE.Vector2(rTop * 0.88, 3.52),
+          new THREE.Vector2(rTop * 0.72, 3.88),
+          new THREE.Vector2(rTop * 0.66, 3.92),
+          new THREE.Vector2(0.00, 3.92)
+        );
+      }
+      const capGeo = new THREE.LatheGeometry(capPts, 80);
+      const capMesh = new THREE.Mesh(capGeo, metalMaterial);
+      vesselHardwareGroup.add(capMesh);
+
+      const rCoilMajor = Math.max(0.32, getBottleRadius(0.12, shape) * 0.73);
+      const coilGeo = createHelicalCoilGeometry(rCoilMajor, 0.035, 22, 0.011, 0.125);
+      const coilMesh = new THREE.Mesh(coilGeo, coilMaterial);
+      coilMesh.name = "HeatingCoilMesh";
+      coilMesh.renderOrder = 1;
+      vesselHardwareGroup.add(coilMesh);
+
+      vesselHardwareGroup.userData.baseMesh = baseMesh;
+      vesselHardwareGroup.userData.glassMesh = glassMesh;
+      vesselHardwareGroup.userData.capMesh = capMesh;
+      vesselHardwareGroup.userData.coilMesh = coilMesh;
+      vesselHardwareGroup.userData.basePts = basePts.map((p) => [Number(p.x.toFixed(4)), Number(p.y.toFixed(4))]);
+      vesselHardwareGroup.userData.capPts = capPts.map((p) => [Number(p.x.toFixed(4)), Number(p.y.toFixed(4))]);
+    }
+
+    rebuildLampHardware(state.bottleShape);
+
+    // ============================================================================
+    // 5. ЕДИНЫЙ БЕСШОВНЫЙ ШЕЙДЕР РАСПЛАВЛЕННОГО ВОСКА (БЕЗ НАЛОЖЕНИЯ ТЕКСТУР ПРИ СЛИЯНИИ!)
+    // ============================================================================
+    const waxUniforms = {
+      uColorHot:       { value: new THREE.Color(state.waxColorHot) },
+      uColorCold:      { value: new THREE.Color(state.waxColorCold) },
+      uLiquidColor:    { value: new THREE.Color(state.liquidColor) },
+      uSSSStrength:    { value: state.sssStrength },
+      uGlowStrength:   { value: state.glowStrength },
+      uBulbPos:        { value: new THREE.Vector3(0, 0.14, 0) },
+      uThermalVision:  { value: 0.0 }
+    };
+
+    const waxShaderMaterial = new THREE.ShaderMaterial({
+      uniforms: waxUniforms,
+      side: THREE.FrontSide,
+      depthTest: true,
+      depthWrite: true,
+      transparent: false,
+      vertexShader: `
+        varying vec3 vNormal;
+        varying vec3 vWorldPos;
+        varying vec3 vViewDir;
+
+        void main() {
+          vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+          vWorldPos = worldPosition.xyz;
+          vNormal = normalize(mat3(modelMatrix) * normal);
+          vViewDir = normalize(cameraPosition - worldPosition.xyz);
+          gl_Position = projectionMatrix * viewMatrix * worldPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 uColorHot;
+        uniform vec3 uColorCold;
+        uniform vec3 uLiquidColor;
+        uniform float uSSSStrength;
+        uniform float uGlowStrength;
+        uniform vec3 uBulbPos;
+        uniform float uThermalVision;
+
+        varying vec3 vNormal;
+        varying vec3 vWorldPos;
+        varying vec3 vViewDir;
+
+        vec3 thermalColorMap(float t) {
+          float c = clamp(t, 0.0, 1.0);
+          vec3 c0 = vec3(0.08, 0.05, 0.35);
+          vec3 c1 = vec3(0.55, 0.05, 0.58);
+          vec3 c2 = vec3(0.96, 0.38, 0.04);
+          vec3 c3 = vec3(1.00, 0.96, 0.65);
+          if (c < 0.33) return mix(c0, c1, c / 0.33);
+          if (c < 0.66) return mix(c1, c2, (c - 0.33) / 0.33);
+          return mix(c2, c3, (c - 0.66) / 0.34);
+        }
+
+        void main() {
+          vec3 N = normalize(vNormal);
+          vec3 V = normalize(vViewDir);
+
+          float heightWarmth = clamp(1.0 - ((vWorldPos.y - 0.35) / 2.45), 0.0, 1.0);
+          float radialWarmth = clamp(1.0 - length(vWorldPos.xz) * 0.85, 0.0, 1.0);
+          float thermalField = clamp(heightWarmth * 0.78 + radialWarmth * 0.22, 0.0, 1.0);
+
+          vec3 baseWax = mix(uColorCold, uColorHot, smoothstep(0.05, 0.92, pow(thermalField, 1.15)));
+          if (uThermalVision > 0.5) {
+            baseWax = thermalColorMap(thermalField);
+          }
+
+          vec3 toLight = uBulbPos - vWorldPos;
+          float distToBulb = length(toLight) + 0.22;
+          vec3 L_bulb = normalize(toLight);
+          float bulbAtten = 1.85 / (1.0 + 0.45 * distToBulb + 0.22 * distToBulb * distToBulb);
+
+          // Однородное объёмное освещение воска без внутренних контурных полос на перешейках при слипании капель
+          float ndv = clamp(dot(N, V), 0.0, 1.0);
+          float coreTranslucency = smoothstep(0.0, 0.88, ndv);
+          float softEdge = 1.0 - coreTranslucency;
+
+          float wrapDiff = max(0.0, (dot(N, L_bulb) + 0.88) / 1.88);
+          vec3 H_back = normalize(L_bulb + N * 0.28);
+          float backScatter = pow(clamp(dot(V, -H_back), 0.0, 1.0), 1.6);
+          float sssTerm = (0.55 * coreTranslucency + 0.65 * backScatter) * uSSSStrength * (0.50 + 0.72 * bulbAtten);
+
+          vec3 L_studio1 = normalize(vec3(-0.52, 0.68, 0.52));
+          vec3 H1 = normalize(L_studio1 + V);
+          // Мягкий блик только на внешних выпуклых гранях (маскируется coreTranslucency, чтобы не давать швов внутри перешейка)
+          float spec = pow(max(0.0, dot(N, H1)), 22.0) * 0.22 * coreTranslucency;
+
+          vec3 hotCoreGlow = mix(uColorHot, vec3(1.0, 0.90, 0.52), 0.38) * pow(heightWarmth, 1.45) * 0.52 * uGlowStrength * (0.65 + 0.35 * coreTranslucency);
+
+          vec3 color = baseWax * (0.44 + 0.64 * wrapDiff * uGlowStrength)
+                     + mix(baseWax, vec3(1.0, 0.82, 0.45), 0.42) * sssTerm * uGlowStrength
+                     + hotCoreGlow
+                     + vec3(1.0, 0.96, 0.92) * spec;
+
+          color = mix(color, uLiquidColor * 0.85 + baseWax * 0.45, softEdge * 0.18);
+
+          gl_FragColor = vec4(color, 1.0);
+        }
+      `,
+      wireframe: false
+    });
+
+    // ============================================================================
+    // 6. ГЕНЕРАТОР ИЗОПОВЕРХНОСТИ MARCHING CUBES С 3D-ДЕФОРМАЦИЕЙ КАПЕЛЬ
+    //    (НАКЛОН + ГРУШЕВИДНАЯ АСИММЕТРИЯ + ЖЕЛЕЙНОЕ КОЛЕБАНИЕ ВДАЛИ ОТ ДНА ЛАМПЫ!)
+    // ============================================================================
+    const MAX_VERTS = 105000;
+    const mcPositions = new Float32Array(MAX_VERTS * 3);
+    const mcNormals   = new Float32Array(MAX_VERTS * 3);
+
+    const waxGeometry = new THREE.BufferGeometry();
+    waxGeometry.setAttribute("position", new THREE.BufferAttribute(mcPositions, 3).setUsage(THREE.DynamicDrawUsage));
+    waxGeometry.setAttribute("normal",   new THREE.BufferAttribute(mcNormals, 3).setUsage(THREE.DynamicDrawUsage));
+    waxGeometry.setDrawRange(0, 0);
+
+    const waxMesh = new THREE.Mesh(waxGeometry, waxShaderMaterial);
+    waxMesh.renderOrder = 2;
+    lampGroup.add(waxMesh);
+
+    const MAX_GRID = 48 * 86 * 48;
+    const fieldGrid = new Float32Array(MAX_GRID);
+
+    const edgeVertsX = new Float32Array(12);
+    const edgeVertsY = new Float32Array(12);
+    const edgeVertsZ = new Float32Array(12);
+    const edgeNormX  = new Float32Array(12);
+    const edgeNormY  = new Float32Array(12);
+    const edgeNormZ  = new Float32Array(12);
+
+    function updateMarchingCubesIsosurface() {
+      const nx = state.gridResXZ;
+      const nz = state.gridResXZ;
+      const ny = Math.round(nx * 1.80);
+      const isoThreshold = state.surfaceTension;
+      const scaleMul = state.blobScale;
+
+      // Нижняя граница сетки minY = 0.24 находится заведомо выше металлического дна (0.08) и дна колбы (0.085),
+      // а сами капли плавают выше y = 0.54, поэтому поле воска закрывается на 100% в воздухе и никогда не касается дна!
+      const minX = -0.78, maxX = 0.78;
+      const minY =  0.24, maxY = 2.98;
+      const minZ = -0.78, maxZ = 0.78;
+
+      const stepX = (maxX - minX) / (nx - 1);
+      const stepY = (maxY - minY) / (ny - 1);
+      const stepZ = (maxZ - minZ) / (nz - 1);
+
+      const strideY = nx;
+      const strideZ = nx * ny;
+      const totalNodes = nx * ny * nz;
+
+      fieldGrid.fill(0, 0, totalNodes);
+
+      const reach = 1.52;
+      const reach2 = reach * reach;
+      const invReach2 = 1.0 / reach2;
+      const waveAmp = 0.026 * state.stretchFactor;
+
+      for (let bIdx = 0; bIdx < blobs.length; bIdx++) {
+        const b = blobs[bIdx];
+        const rx = b.baseR * scaleMul * b.sx;
+        const ry = b.baseR * scaleMul * b.sy;
+        const rz = b.baseR * scaleMul * b.sz;
+        const invRx2 = 1.0 / (rx * rx);
+        const invRy2 = 1.0 / (ry * ry);
+        const invRz2 = 1.0 / (rz * rz);
+
+        const boundR = Math.max(rx, ry, rz) * (reach + 0.12);
+
+        const ix0 = Math.max(1, Math.floor((b.x - boundR - minX) / stepX));
+        const ix1 = Math.min(nx - 2, Math.ceil((b.x + boundR - minX) / stepX));
+        const iy0 = Math.max(1, Math.floor((b.y - boundR - minY) / stepY));
+        const iy1 = Math.min(ny - 2, Math.ceil((b.y + boundR - minY) / stepY));
+        const iz0 = Math.max(1, Math.floor((b.z - boundR - minZ) / stepZ));
+        const iz1 = Math.min(nz - 2, Math.ceil((b.z + boundR - minZ) / stepZ));
+
+        const bWaveX = waveAmp * Math.sin(b.y * 2.5 - simTime * 1.15);
+        const bWaveZ = waveAmp * Math.cos(b.y * 2.2 - simTime * 0.95);
+
+        for (let iz = iz0; iz <= iz1; iz++) {
+          const z = minZ + iz * stepZ;
+          const zOff = iz * strideZ;
+
+          for (let iy = iy0; iy <= iy1; iy++) {
+            const y = minY + iy * stepY;
+            const dy = y - b.y;
+            const dy2 = dy * dy * invRy2;
+            if (dy2 >= reach2) continue;
+
+            // Единое гладкое волновое поле деформации в пространстве (без индивидуальных изломов при слипании капель!)
+            const wX = waveAmp * Math.sin(y * 2.5 - simTime * 1.15) - bWaveX;
+            const wZ = waveAmp * Math.cos(y * 2.2 - simTime * 0.95) - bWaveZ;
+
+            const dz = (z + wZ) - b.z;
+            const dzy2 = dy2 + dz * dz * invRz2;
+            if (dzy2 >= reach2) continue;
+
+            const zyOff = zOff + iy * strideY;
+
+            for (let ix = ix0; ix <= ix1; ix++) {
+              const x = minX + ix * stepX;
+              const dx = (x + wX) - b.x;
+              const d2 = dzy2 + dx * dx * invRx2;
+              if (d2 < reach2) {
+                const q = d2 * invReach2;
+                const omq = 1.0 - q;
+                const omq2 = omq * omq;
+                // Гладкое C3-ядро метаболов: 1-я, 2-я и 3-я производные равны 0 на границе (идеально бесшовное слипание)
+                fieldGrid[zyOff + ix] += (omq2 * omq2) * (1.0 + 4.0 * q);
+              }
+            }
+          }
+        }
+      }
+
+      let vertCount = 0;
+      const cornerIdx  = new Int32Array(8);
+      const cornerVals = new Float32Array(8);
+      const cornerX    = new Float32Array(8);
+      const cornerY    = new Float32Array(8);
+      const cornerZ    = new Float32Array(8);
+
+      const inv2StepX = 0.5 / stepX;
+      const inv2StepY = 0.5 / stepY;
+      const inv2StepZ = 0.5 / stepZ;
+
+      for (let iz = 1; iz < nz - 2; iz++) {
+        const z0 = minZ + iz * stepZ;
+        const z1 = z0 + stepZ;
+        const zOff0 = iz * strideZ;
+        const zOff1 = (iz + 1) * strideZ;
+
+        for (let iy = 1; iy < ny - 2; iy++) {
+          const y0 = minY + iy * stepY;
+          const y1 = y0 + stepY;
+          const yOff0 = iy * strideY;
+          const yOff1 = (iy + 1) * strideY;
+
+          for (let ix = 1; ix < nx - 2; ix++) {
+            const i0 = zOff0 + yOff0 + ix;
+            const i1 = i0 + 1;
+            const i2 = zOff0 + yOff1 + ix + 1;
+            const i3 = zOff0 + yOff1 + ix;
+            const i4 = zOff1 + yOff0 + ix;
+            const i5 = i4 + 1;
+            const i6 = zOff1 + yOff1 + ix + 1;
+            const i7 = zOff1 + yOff1 + ix;
+
+            const v0 = fieldGrid[i0], v1 = fieldGrid[i1], v2 = fieldGrid[i2], v3 = fieldGrid[i3];
+            const v4 = fieldGrid[i4], v5 = fieldGrid[i5], v6 = fieldGrid[i6], v7 = fieldGrid[i7];
+
+            let cubeIndex = 0;
+            if (v0 < isoThreshold) cubeIndex |= 1;
+            if (v1 < isoThreshold) cubeIndex |= 2;
+            if (v2 < isoThreshold) cubeIndex |= 4;
+            if (v3 < isoThreshold) cubeIndex |= 8;
+            if (v4 < isoThreshold) cubeIndex |= 16;
+            if (v5 < isoThreshold) cubeIndex |= 32;
+            if (v6 < isoThreshold) cubeIndex |= 64;
+            if (v7 < isoThreshold) cubeIndex |= 128;
+
+            const edges = MC_EDGE_TABLE[cubeIndex];
+            if (edges === 0) continue;
+
+            const x0 = minX + ix * stepX;
+            const x1 = x0 + stepX;
+
+            cornerIdx[0] = i0; cornerIdx[1] = i1; cornerIdx[2] = i2; cornerIdx[3] = i3;
+            cornerIdx[4] = i4; cornerIdx[5] = i5; cornerIdx[6] = i6; cornerIdx[7] = i7;
+
+            cornerVals[0] = v0; cornerVals[1] = v1; cornerVals[2] = v2; cornerVals[3] = v3;
+            cornerVals[4] = v4; cornerVals[5] = v5; cornerVals[6] = v6; cornerVals[7] = v7;
+
+            cornerX[0] = x0; cornerX[1] = x1; cornerX[2] = x1; cornerX[3] = x0;
+            cornerX[4] = x0; cornerX[5] = x1; cornerX[6] = x1; cornerX[7] = x0;
+
+            cornerY[0] = y0; cornerY[1] = y0; cornerY[2] = y1; cornerY[3] = y1;
+            cornerY[4] = y0; cornerY[5] = y0; cornerY[6] = y1; cornerY[7] = y1;
+
+            cornerZ[0] = z0; cornerZ[1] = z0; cornerZ[2] = z0; cornerZ[3] = z0;
+            cornerZ[4] = z1; cornerZ[5] = z1; cornerZ[6] = z1; cornerZ[7] = z1;
+
+            for (let e = 0; e < 12; e++) {
+              if (edges & (1 << e)) {
+                const a = CUBE_EDGES[e][0];
+                const b = CUBE_EDGES[e][1];
+                const va = cornerVals[a];
+                const vb = cornerVals[b];
+                const mu = Math.abs(vb - va) > 1e-6 ? (isoThreshold - va) / (vb - va) : 0.5;
+
+                edgeVertsX[e] = cornerX[a] + mu * (cornerX[b] - cornerX[a]);
+                edgeVertsY[e] = cornerY[a] + mu * (cornerY[b] - cornerY[a]);
+                edgeVertsZ[e] = cornerZ[a] + mu * (cornerZ[b] - cornerZ[a]);
+
+                const ia = cornerIdx[a];
+                const ib = cornerIdx[b];
+
+                const gax = (fieldGrid[ia - 1] - fieldGrid[ia + 1]) * inv2StepX;
+                const gay = (fieldGrid[ia - strideY] - fieldGrid[ia + strideY]) * inv2StepY;
+                const gaz = (fieldGrid[ia - strideZ] - fieldGrid[ia + strideZ]) * inv2StepZ;
+
+                const gbx = (fieldGrid[ib - 1] - fieldGrid[ib + 1]) * inv2StepX;
+                const gby = (fieldGrid[ib - strideY] - fieldGrid[ib + strideY]) * inv2StepY;
+                const gbz = (fieldGrid[ib - strideZ] - fieldGrid[ib + strideZ]) * inv2StepZ;
+
+                const nxVal = gax + mu * (gbx - gax);
+                const nyVal = gay + mu * (gby - gay);
+                const nzVal = gaz + mu * (gbz - gaz);
+                const nLen = Math.sqrt(nxVal * nxVal + nyVal * nyVal + nzVal * nzVal) + 1e-8;
+
+                edgeNormX[e] = nxVal / nLen;
+                edgeNormY[e] = nyVal / nLen;
+                edgeNormZ[e] = nzVal / nLen;
+              }
+            }
+
+            const triOffset = cubeIndex * 16;
+            for (let t = 0; MC_TRI_TABLE[triOffset + t] !== -1; t += 3) {
+              if (vertCount + 3 >= MAX_VERTS) break;
+              const e0 = MC_TRI_TABLE[triOffset + t];
+              const e1 = MC_TRI_TABLE[triOffset + t + 2];
+              const e2 = MC_TRI_TABLE[triOffset + t + 1];
+
+              const idx0 = vertCount * 3;
+              mcPositions[idx0]     = edgeVertsX[e0];
+              mcPositions[idx0 + 1] = edgeVertsY[e0];
+              mcPositions[idx0 + 2] = edgeVertsZ[e0];
+              mcNormals[idx0]       = edgeNormX[e0];
+              mcNormals[idx0 + 1]   = edgeNormY[e0];
+              mcNormals[idx0 + 2]   = edgeNormZ[e0];
+
+              const idx1 = (vertCount + 1) * 3;
+              mcPositions[idx1]     = edgeVertsX[e1];
+              mcPositions[idx1 + 1] = edgeVertsY[e1];
+              mcPositions[idx1 + 2] = edgeVertsZ[e1];
+              mcNormals[idx1]       = edgeNormX[e1];
+              mcNormals[idx1 + 1]   = edgeNormY[e1];
+              mcNormals[idx1 + 2]   = edgeNormZ[e1];
+
+              const idx2 = (vertCount + 2) * 3;
+              mcPositions[idx2]     = edgeVertsX[e2];
+              mcPositions[idx2 + 1] = edgeVertsY[e2];
+              mcPositions[idx2 + 2] = edgeVertsZ[e2];
+              mcNormals[idx2]       = edgeNormX[e2];
+              mcNormals[idx2 + 1]   = edgeNormY[e2];
+              mcNormals[idx2 + 2]   = edgeNormZ[e2];
+
+              vertCount += 3;
+            }
+          }
+        }
+      }
+
+      waxGeometry.attributes.position.needsUpdate = true;
+      waxGeometry.attributes.normal.needsUpdate   = true;
+      waxGeometry.setDrawRange(0, vertCount);
+      return Math.floor(vertCount / 3);
+    }
+
+    // ============================================================================
+    // 7. МУЛЬТИТАЧ (ДЛЯ ТЕЛЕФОНОВ) И МЫШЬ (ДЛЯ ПК): ВРАЩЕНИЕ, PINCH-ZOOM И ВОЛНА
+    // ============================================================================
+    const raycaster = new THREE.Raycaster();
+    const mouseNDC = new THREE.Vector2();
+    let pointerDownPos = { x: 0, y: 0 };
+
+    renderer.domElement.addEventListener("pointerdown", (e) => {
+      if (camOrbit.pinching) return;
+      camOrbit.dragging = true;
+      camOrbit.lastX = e.clientX;
+      camOrbit.lastY = e.clientY;
+      pointerDownPos.x = e.clientX;
+      pointerDownPos.y = e.clientY;
+    });
+
+    window.addEventListener("pointermove", (e) => {
+      if (!camOrbit.dragging || camOrbit.pinching) return;
+      const dx = e.clientX - camOrbit.lastX;
+      const dy = e.clientY - camOrbit.lastY;
+      camOrbit.lastX = e.clientX;
+      camOrbit.lastY = e.clientY;
+
+      camOrbit.theta -= dx * 0.0075;
+      camOrbit.phi = Math.max(0.25, Math.min(Math.PI - 0.25, camOrbit.phi - dy * 0.0065));
+      updateCameraTransform();
+    });
+
+    window.addEventListener("pointerup", (e) => {
+      if (!camOrbit.dragging) return;
+      camOrbit.dragging = false;
+
+      const moveDist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+      if (moveDist < 6 && !camOrbit.pinching) {
+        const rect = renderer.domElement.getBoundingClientRect();
+        mouseNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouseNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(mouseNDC, camera);
+
+        const hits = raycaster.intersectObjects(vesselHardwareGroup.children, false);
+        if (hits.length > 0) {
+          const hitPt = hits[0].point;
+          if (hitPt.y >= 0.1 && hitPt.y <= 3.05) {
+            for (let i = 0; i < blobs.length; i++) {
+              const b = blobs[i];
+              const dy = b.y - hitPt.y;
+              if (Math.abs(dy) < 0.90) {
+                b.vy += (dy >= 0 ? 0.28 : -0.24);
+                b.vx += (Math.random() - 0.5) * 0.28;
+                b.vz += (Math.random() - 0.5) * 0.28;
+                b.wobblePhase += 0.9;
+              }
+            }
+            showToast("💧 Мягкая волна деформации передана каплям лавы!");
+          }
+        }
+      }
+    });
+
+    renderer.domElement.addEventListener("touchstart", (e) => {
+      if (e.touches.length === 2) {
+        camOrbit.pinching = true;
+        camOrbit.dragging = false;
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        camOrbit.lastPinchDist = Math.hypot(dx, dy);
+      }
+    }, { passive: true });
+
+    renderer.domElement.addEventListener("touchmove", (e) => {
+      if (e.touches.length === 2 && camOrbit.pinching) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        const delta = camOrbit.lastPinchDist - dist;
+        camOrbit.lastPinchDist = dist;
+        camOrbit.radius = Math.max(3.6, Math.min(13.5, camOrbit.radius + delta * 0.015));
+        updateCameraTransform();
+      }
+    }, { passive: true });
+
+    renderer.domElement.addEventListener("touchend", (e) => {
+      if (e.touches.length < 2) {
+        camOrbit.pinching = false;
+      }
+    }, { passive: true });
+
+    renderer.domElement.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      camOrbit.radius = Math.max(3.6, Math.min(13.5, camOrbit.radius + e.deltaY * 0.004));
+      updateCameraTransform();
+    }, { passive: false });
+
+    window.addEventListener("resize", () => {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      updateCameraTransform();
+    });
+
+    function showToast(msg) {
+      const el = document.getElementById("toastNotice");
+      el.textContent = msg;
+      el.classList.remove("opacity-0", "-translate-y-2");
+      el.classList.add("opacity-100", "translate-y-0");
+      clearTimeout(el._timer);
+      el._timer = setTimeout(() => {
+        el.classList.add("opacity-0", "-translate-y-2");
+        el.classList.remove("opacity-100", "translate-y-0");
+      }, 2400);
+    }
+
+    function hexToRgb01(hex) {
+      const c = new THREE.Color(hex);
+      return [Number(c.r.toFixed(4)), Number(c.g.toFixed(4)), Number(c.b.toFixed(4)), 1.0];
+    }
+
+    function syncVisualMaterials() {
+      waxUniforms.uColorHot.value.set(state.waxColorHot);
+      waxUniforms.uColorCold.value.set(state.waxColorCold);
+      waxUniforms.uLiquidColor.value.set(state.liquidColor);
+      waxUniforms.uSSSStrength.value = state.sssStrength;
+      waxUniforms.uGlowStrength.value = state.glowStrength;
+      waxUniforms.uThermalVision.value = state.thermalVision ? 1.0 : 0.0;
+
+      const wf = Boolean(state.wireframe);
+      waxShaderMaterial.wireframe = wf;
+      metalMaterial.wireframe = wf;
+      coilMaterial.wireframe = wf;
+      coilMaterial.color.set(state.waxColorHot).lerp(new THREE.Color(0xffffff), 0.32);
+      coilMaterial.emissive.set(state.waxColorHot);
+      coilMaterial.emissiveIntensity = 0.55 * state.glowStrength * (state.heatPower / 45.0);
+      glassOuterMaterial.wireframe = wf;
+      glassOuterMaterial.opacity = wf ? Math.max(0.42, state.glassOpacity) : state.glassOpacity;
+      pedestalMat.wireframe = wf;
+      causticsPlane.visible = !wf;
+      glassOuterMaterial.color.set(state.liquidColor).lerp(new THREE.Color(0xffffff), 0.68);
+      glassOuterMaterial.emissive.set(state.liquidColor).multiplyScalar(0.18);
+
+      bulbLight.color.set(state.waxColorHot);
+      bulbLight.intensity = 1.8 * state.glowStrength * (state.heatPower / 45.0);
+      midLavaLight.color.set(state.waxColorCold);
+      midLavaLight.intensity = 1.1 * state.glowStrength;
+
+      const mf = METAL_FINISHES[state.metalFinish];
+      metalMaterial.color.set(mf.color);
+      metalMaterial.roughness = mf.roughness;
+      metalMaterial.metalness = mf.metalness;
+    }
+
+    const controlPanelEl = document.getElementById("controlPanel");
+    function setPanelOpen(isOpen) {
+      state.panelOpen = isOpen;
+      if (isOpen) {
+        controlPanelEl.classList.remove("panel-hidden");
+      } else {
+        controlPanelEl.classList.add("panel-hidden");
+      }
+      updateCameraTransform();
+    }
+    setPanelOpen(state.panelOpen);
+
+    document.getElementById("btnTogglePanel").addEventListener("click", () => {
+      setPanelOpen(!state.panelOpen);
+    });
+    document.getElementById("btnClosePanelMobile").addEventListener("click", () => {
+      setPanelOpen(false);
+    });
+
+    document.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const targetId = btn.getAttribute("data-tab");
+        document.querySelectorAll(".tab-btn").forEach((b) => {
+          b.className = "tab-btn py-1.5 px-2 rounded-xl text-[11px] sm:text-xs font-semibold text-slate-400 hover:text-white border border-transparent transition";
+        });
+        btn.className = "tab-btn py-1.5 px-2 rounded-xl text-[11px] sm:text-xs font-semibold bg-gradient-to-r from-orange-500/25 to-rose-500/25 text-orange-200 border border-orange-500/30 transition";
+
+        document.querySelectorAll(".tab-pane").forEach((p) => p.classList.add("hidden"));
+        document.getElementById(targetId).classList.remove("hidden");
+      });
+    });
+
+    function bindSlider(id, valId, prop, formatter, onChangeExtra) {
+      const el = document.getElementById(id);
+      const valEl = document.getElementById(valId);
+      el.addEventListener("input", () => {
+        const v = parseFloat(el.value);
+        state[prop] = v;
+        valEl.textContent = formatter(v);
+        if (onChangeExtra) onChangeExtra(v);
+      });
+    }
+
+    bindSlider("sliderHeatPower", "valHeatPower", "heatPower", (v) => `${v} Вт`, () => syncVisualMaterials());
+    bindSlider("sliderSurfaceTension", "valSurfaceTension", "surfaceTension", (v) => v.toFixed(2));
+    bindSlider("sliderCoalescence", "valCoalescence", "coalescence", (v) => `${v.toFixed(2)}×`);
+    bindSlider("sliderViscosity", "valViscosity", "viscosity", (v) => `${v.toFixed(2)} Па·с`);
+    bindSlider("sliderBuoyancy", "valBuoyancy", "buoyancy", (v) => `${v.toFixed(2)}×`);
+    bindSlider("sliderStretch", "valStretch", "stretchFactor", (v) => `${v.toFixed(2)}×`);
+    bindSlider("sliderBlobCount", "valBlobCount", "blobCount", (v) => `${v} шт.`, (v) => {
+      while (blobs.length < v) {
+        blobs.push(createFreeDroplet(blobs.length));
+      }
+      while (blobs.length > v && blobs.length > 2) {
+        blobs.pop();
+      }
+      document.getElementById("hudBlobs").textContent = blobs.length;
+    });
+    bindSlider("sliderBlobScale", "valBlobScale", "blobScale", (v) => `${v.toFixed(2)}×`);
+    bindSlider("sliderGridRes", "valGridRes", "gridResXZ", (v) => {
+      const ny = Math.round(v * 1.80);
+      return `${v}×${ny}×${v}`;
+    });
+    bindSlider("sliderTimeScale", "valTimeScale", "timeScale", (v) => `${v.toFixed(1)}×`);
+
+    bindSlider("sliderSSS", "valSSS", "sssStrength", (v) => v.toFixed(2), () => syncVisualMaterials());
+    bindSlider("sliderGlow", "valGlow", "glowStrength", (v) => v.toFixed(2), () => syncVisualMaterials());
+    bindSlider("sliderGlassOpacity", "valGlassOpacity", "glassOpacity", (v) => v.toFixed(2), () => syncVisualMaterials());
+    bindSlider("sliderExportFrames", "valExportFrames", "exportFrames", (v) => `${v} кадров (${(v/24).toFixed(0)} сек)`);
+
+    ["colorWaxHot", "colorWaxCold", "colorLiquid"].forEach((id) => {
+      document.getElementById(id).addEventListener("input", (e) => {
+        if (id === "colorWaxHot") state.waxColorHot = e.target.value;
+        if (id === "colorWaxCold") state.waxColorCold = e.target.value;
+        if (id === "colorLiquid") state.liquidColor = e.target.value;
+        syncVisualMaterials();
+      });
+    });
+
+    document.querySelectorAll("#presetPaletteGrid button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#presetPaletteGrid button").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const p = PALETTES[btn.getAttribute("data-palette")];
+        state.waxColorHot = p.hot;
+        state.waxColorCold = p.cold;
+        state.liquidColor = p.liquid;
+        document.getElementById("colorWaxHot").value = p.hot;
+        document.getElementById("colorWaxCold").value = p.cold;
+        document.getElementById("colorLiquid").value = p.liquid;
+        syncVisualMaterials();
+        showToast("🎨 Цветовая палитра лавы обновлена");
+      });
+    });
+
+    document.querySelectorAll("#bottleShapeGrid button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#bottleShapeGrid button").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        state.bottleShape = btn.getAttribute("data-shape");
+        rebuildLampHardware(state.bottleShape);
+        showToast("🏺 Геометрия стеклянной колбы и корпуса обновлена");
+      });
+    });
+
+    document.querySelectorAll("#metalFinishGrid button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#metalFinishGrid button").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        state.metalFinish = btn.getAttribute("data-metal");
+        syncVisualMaterials();
+      });
+    });
+
+    document.getElementById("btnResetPhysics").addEventListener("click", () => {
+      state.heatPower = 45;
+      state.surfaceTension = 0.46;
+      state.coalescence = 1.00;
+      state.viscosity = 2.40;
+      state.buoyancy = 1.00;
+      state.stretchFactor = 1.00;
+      state.blobScale = 1.00;
+      state.timeScale = 1.0;
+
+      document.getElementById("sliderHeatPower").value = 45;
+      document.getElementById("valHeatPower").textContent = "45 Вт";
+      document.getElementById("sliderSurfaceTension").value = 0.46;
+      document.getElementById("valSurfaceTension").textContent = "0.46";
+      document.getElementById("sliderCoalescence").value = 1.00;
+      document.getElementById("valCoalescence").textContent = "1.00×";
+      document.getElementById("sliderViscosity").value = 2.40;
+      document.getElementById("valViscosity").textContent = "2.40 Па·с";
+      document.getElementById("sliderBuoyancy").value = 1.00;
+      document.getElementById("valBuoyancy").textContent = "1.00×";
+      document.getElementById("sliderStretch").value = 1.00;
+      document.getElementById("valStretch").textContent = "1.00×";
+      document.getElementById("sliderBlobScale").value = 1.00;
+      document.getElementById("valBlobScale").textContent = "1.00×";
+      document.getElementById("sliderTimeScale").value = 1.0;
+      document.getElementById("valTimeScale").textContent = "1.0×";
+
+      initBlobs(state.blobCount);
+      syncVisualMaterials();
+      showToast("⚛️ Параметры физики сброшены к эталонным");
+    });
+
+    document.getElementById("btnPlayPause").addEventListener("click", () => {
+      state.playing = !state.playing;
+      document.getElementById("playPauseIcon").textContent = state.playing ? "⏸" : "▶️";
+      document.getElementById("playPauseLabel").textContent = state.playing ? "Пауза" : "Пуск";
+    });
+
+    document.getElementById("btnHeatBoost").addEventListener("click", () => {
+      for (let i = 0; i < blobs.length; i++) {
+        blobs[i].phase += 0.22 * blobs[i].speedMult;
+        blobs[i].vy += 0.24;
+        blobs[i].wobblePhase += 0.75;
+      }
+      showToast("🔥 Мягкий тепловой импульс передан восходящим каплям!");
+    });
+
+    document.getElementById("btnStirSwirl").addEventListener("click", () => {
+      for (let i = 0; i < blobs.length; i++) {
+        const b = blobs[i];
+        b.vx += (Math.random() - 0.5) * 0.45;
+        b.vz += (Math.random() - 0.5) * 0.45;
+        b.vy += (i % 2 === 0 ? 0.25 : -0.25);
+        b.wobblePhase += 1.1;
+      }
+      showToast("🌀 Капли лавы плавно приведены в колебание!");
+    });
+
+    document.getElementById("btnAddBlob").addEventListener("click", () => {
+      if (blobs.length >= 12) {
+        showToast("Достигнут максимум капель (12 шт.)");
+        return;
+      }
+      const d = createFreeDroplet(blobs.length);
+      d.phase = 0.45;
+      d.y = 0.62;
+      d.vy = 0.18;
+      blobs.push(d);
+      state.blobCount = blobs.length;
+      document.getElementById("sliderBlobCount").value = blobs.length;
+      document.getElementById("valBlobCount").textContent = `${blobs.length} шт.`;
+      document.getElementById("hudBlobs").textContent = blobs.length;
+      showToast("➕ Добавлена новая свободно плавающая капля воска!");
+    });
+
+    document.getElementById("btnThermalView").addEventListener("click", () => {
+      state.thermalVision = !state.thermalVision;
+      document.getElementById("thermalViewLabel").textContent = `Тепловизор: ${state.thermalVision ? "Вкл" : "Выкл"}`;
+      syncVisualMaterials();
+    });
+
+    document.getElementById("btnWireframe").addEventListener("click", () => {
+      state.wireframe = !state.wireframe;
+      document.getElementById("wireframeLabel").textContent = `Сетка: ${state.wireframe ? "Вкл" : "Выкл"}`;
+      syncVisualMaterials();
+    });
+
+    document.getElementById("btnResetCamera").addEventListener("click", () => {
+      camOrbit.theta = 0.35;
+      camOrbit.phi = 1.42;
+      camOrbit.radius = getIdealCameraRadius();
+      updateCameraTransform();
+    });
+
+    // ============================================================================
+    // 8. ГЕНЕРАЦИЯ И СКАЧИВАНИЕ BLENDER (.PY -> .BLEND) И АНИМИРОВАННОГО .GLTF
+    // ============================================================================
+    function bakeCurrentSimulationFrames(numFrames = state.exportFrames) {
+      const simClone = blobs.map((b) => ({ ...b }));
+      const savedSimTime = simTime;
+      const frames = [];
+      const dt = 1.0 / 16.0;
+
+      for (let f = 0; f < numFrames; f++) {
+        stepPhysics(dt, simClone, state);
+        const snap = simClone.map((b) => [
+          Number(b.x.toFixed(4)),
+          Number(b.y.toFixed(4)),
+          Number(b.z.toFixed(4)),
+          Number((b.baseR * state.blobScale).toFixed(4)),
+          Number(b.sx.toFixed(4)),
+          Number(b.sy.toFixed(4)),
+          Number(b.sz.toFixed(4)),
+          Number(b.temp.toFixed(4)),
+          Number((b.tiltX || 0).toFixed(4)),
+          Number((b.tiltZ || 0).toFixed(4))
+        ]);
+        frames.push(snap);
+      }
+      simTime = savedSimTime;
+      return frames;
+    }
+
+    function generateCustomBlenderPythonScript(numFrames = state.exportFrames) {
+      const bakedFrames = bakeCurrentSimulationFrames(numFrames);
+      const hotRgba = hexToRgb01(state.waxColorHot);
+      const coldRgba = hexToRgb01(state.waxColorCold);
+      const liqRgba = hexToRgb01(state.liquidColor);
+      const mf = METAL_FINISHES[state.metalFinish];
+      const metalRgba = hexToRgb01(mf.color);
+
+      const glassOuterProfile = [];
+      for (let i = 0; i <= 24; i++) {
+        const y = Number((0.085 + (i / 24) * (3.10 - 0.085)).toFixed(3));
+        const rIn = Number(getBottleRadius(y, state.bottleShape).toFixed(3));
+        glassOuterProfile.push([Number((rIn + 0.018).toFixed(3)), y]);
+      }
+
+      return `# -*- coding: utf-8 -*-
+"""
+================================================================================
+LAVA LAMP 3D STUDIO — ИНДИВИДУАЛЬНАЯ СЦЕНА ДЛЯ BLENDER (.BLEND) С ВАШИМИ ПАРАМЕТРАМИ
+================================================================================
+Как открыть и сохранить .blend:
+  1. Откройте Blender (3.x / 4.x / 5.x) -> вкладка "Scripting" -> "Open".
+  2. Выберите этот файл и нажмите "Run Script" (▶) — либо просто запустите этот
+     файл в PyCharm / терминале (скрипт сам найдёт установленный Blender!).
+  3. Скрипт построит лавовую лампу с точным переводом цветов sRGB -> Linear RGB,
+     чистой студийной камерой 42° FOV без мешающих рамок и сеток, прозрачным
+     стеклом, гладким хромом, нагревательной спиралью Беттса, 5-точечным светом,
+     запишет ${numFrames} кадров запечённой анимации и сохранит
+     готовый файл 'lava_lamp_custom_animated.blend'!
+================================================================================
+"""
+
+import glob
+import math
+import os
+import shutil
+import subprocess
+import sys
+import warnings
+
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+
+def find_installed_blender_exe():
+    """Автоматически находит установленный на ПК пользователя Blender (blender.exe),
+    чтобы при запуске скрипта из PyCharm сохранить .blend файл в точном формате вашей версии Blender."""
+    if sys.platform == "win32":
+        try:
+            out = subprocess.check_output(
+                ["powershell", "-NoProfile", "-Command", "(Get-Process blender -ErrorAction SilentlyContinue | Select-Object -First 1).Path"],
+                stderr=subprocess.DEVNULL, text=True, timeout=3
+            ).strip()
+            if out and os.path.isfile(out):
+                return out
+        except Exception:
+            pass
+
+        try:
+            import winreg
+            reg_paths = [
+                (winreg.HKEY_CURRENT_USER, "Software/Microsoft/Windows NT/CurrentVersion/AppCompatFlags/Compatibility Assistant/Store".replace("/", chr(92))),
+                (winreg.HKEY_CURRENT_USER, "Software/Classes/Local Settings/Software/Microsoft/Windows/Shell/MuiCache".replace("/", chr(92))),
+                (winreg.HKEY_CURRENT_USER, "Software/Microsoft/Windows/CurrentVersion/Explorer/FeatureUsage/AppSwitched".replace("/", chr(92))),
+            ]
+            candidates = []
+            for root, subkey in reg_paths:
+                try:
+                    with winreg.OpenKey(root, subkey) as k:
+                        i = 0
+                        while True:
+                            try:
+                                val_name, _, _ = winreg.EnumValue(k, i)
+                                i += 1
+                                clean = val_name.split(".FriendlyAppName")[0].split(".ApplicationCompany")[0].strip('"')
+                                if os.path.basename(clean).lower() == "blender.exe" and os.path.isfile(clean):
+                                    candidates.append(clean)
+                            except OSError:
+                                break
+                except OSError:
+                    pass
+            if candidates:
+                return candidates[0]
+
+            assoc_keys = [
+                (winreg.HKEY_CURRENT_USER, "Software/Classes/blendfile/shell/open/command".replace("/", chr(92))),
+                (winreg.HKEY_CLASSES_ROOT, "blendfile/shell/open/command".replace("/", chr(92))),
+                (winreg.HKEY_CLASSES_ROOT, "Applications/blender.exe/shell/open/command".replace("/", chr(92))),
+                (winreg.HKEY_LOCAL_MACHINE, "SOFTWARE/Classes/blendfile/shell/open/command".replace("/", chr(92))),
+            ]
+            for root, subkey in assoc_keys:
+                try:
+                    with winreg.OpenKey(root, subkey) as k:
+                        cmd, _ = winreg.QueryValueEx(k, "")
+                        if cmd and "blender.exe" in cmd.lower():
+                            for p in cmd.split('"'):
+                                if os.path.basename(p.strip()).lower() == "blender.exe" and os.path.isfile(p.strip()):
+                                    return p.strip()
+                except OSError:
+                    pass
+        except Exception:
+            pass
+
+        patterns = []
+        for drv in ("C:", "D:", "E:", "F:"):
+            patterns.extend([
+                drv + "/Program Files/Blender Foundation/Blender*/blender.exe",
+                drv + "/Program Files (x86)/Steam/steamapps/common/Blender/blender.exe",
+                drv + "/SteamLibrary/steamapps/common/Blender/blender.exe",
+                drv + "/Blender*/blender.exe",
+            ])
+        patterns.extend([
+            os.path.expanduser("~/AppData/Local/Programs/Blender Foundation/Blender*/blender.exe"),
+            os.path.expanduser("~/Desktop/*blender*/blender.exe"),
+            os.path.expanduser("~/Downloads/*blender*/blender.exe"),
+        ])
+        found = []
+        for pat in patterns:
+            found.extend(glob.glob(pat))
+        found = [p for p in found if os.path.isfile(p)]
+        if found:
+            found.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+            return found[0]
+
+    w = shutil.which("blender")
+    if w and os.path.isfile(w):
+        return w
+    return None
+
+
+if "--inside-blender" not in sys.argv and "blender" not in os.path.basename(sys.executable).lower():
+    _blender_bin = find_installed_blender_exe()
+    if _blender_bin and "__file__" in globals() and os.path.isfile(__file__):
+        print("[LavaLamp 3D] Найден установленный Blender:", _blender_bin)
+        print("[LavaLamp 3D] Генерация совместимого .blend файла вашей версией Blender...")
+        _res = subprocess.run([_blender_bin, "--background", "--python", os.path.abspath(__file__), "--", "--inside-blender"])
+        if _res.returncode == 0:
+            sys.exit(0)
+
+import bpy
+import bmesh
+
+
+def srgb_ch_to_linear(c):
+    c = max(0.0, min(1.0, float(c)))
+    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+
+def srgb_to_linear(rgba):
+    if len(rgba) == 4:
+        return (srgb_ch_to_linear(rgba[0]), srgb_ch_to_linear(rgba[1]), srgb_ch_to_linear(rgba[2]), float(rgba[3]))
+    return (srgb_ch_to_linear(rgba[0]), srgb_ch_to_linear(rgba[1]), srgb_ch_to_linear(rgba[2]))
+
+
+BAKED_FRAMES = ${JSON.stringify(bakedFrames)}
+
+PARAMS = {
+    "wax_color_hot_srgb": (${hotRgba.join(", ")}),
+    "wax_color_cold_srgb": (${coldRgba.join(", ")}),
+    "liquid_color_srgb": (${liqRgba.join(", ")}),
+    "metal_color_srgb": (${metalRgba.join(", ")}),
+    "metal_roughness": ${mf.roughness.toFixed(2)},
+    "glass_ior": 1.48,
+    "wax_subsurface": ${state.sssStrength},
+    "wax_emission_strength": ${(state.glowStrength * 1.15).toFixed(2)},
+    "coil_power_watts": ${state.heatPower.toFixed(1)},
+    "metaball_threshold": 0.42,
+    "metaball_resolution_view": 0.035,
+    "metaball_resolution_render": 0.022,
+    "fps": 24,
+}
+
+GLASS_PROFILE = ${JSON.stringify(glassOuterProfile)}
+
+
+def clear_scene():
+    for obj in list(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+
+
+def create_revolved_mesh(name, profile_points, segments=96):
+    mesh = bpy.data.meshes.new(name)
+    bm = bmesh.new()
+    rings = []
+    for r, z in profile_points:
+        ring = []
+        for s in range(segments):
+            a = (2.0 * math.pi * s) / segments
+            ring.append(bm.verts.new((r * math.cos(a), r * math.sin(a), z)))
+        rings.append(ring)
+    bm.verts.ensure_lookup_table()
+    for i in range(len(profile_points) - 1):
+        for s in range(segments):
+            sn = (s + 1) % segments
+            bm.faces.new((rings[i][s], rings[i][sn], rings[i+1][sn], rings[i+1][s]))
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(mesh)
+    bm.free()
+    for p in mesh.polygons:
+        p.use_smooth = True
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    return obj
+
+
+def create_helical_coil(name, major_r=0.42, minor_r=0.035, turns=22, wire_r=0.011, z_center=0.125):
+    mesh = bpy.data.meshes.new(name)
+    bm = bmesh.new()
+    u_steps = turns * 16
+    v_steps = 10
+    rings = []
+    for i in range(u_steps):
+        u = (2.0 * math.pi * i) / u_steps
+        w = turns * u
+        cx = (major_r + minor_r * math.cos(w)) * math.cos(u)
+        cy = (major_r + minor_r * math.cos(w)) * math.sin(u)
+        cz = z_center + minor_r * math.sin(w)
+        u2 = u + 0.001
+        w2 = turns * u2
+        tx = (major_r + minor_r * math.cos(w2)) * math.cos(u2) - cx
+        ty = (major_r + minor_r * math.cos(w2)) * math.sin(u2) - cy
+        tz = (z_center + minor_r * math.sin(w2)) - cz
+        tl = math.sqrt(tx*tx + ty*ty + tz*tz) + 1e-8
+        tx, ty, tz = tx/tl, ty/tl, tz/tl
+        nx, ny, nz = ty, -tx, 0.0
+        nl = math.sqrt(nx*nx + ny*ny + nz*nz) + 1e-8
+        nx, ny, nz = nx/nl, ny/nl, nz/nl
+        bx = ty * nz - tz * ny
+        by = tz * nx - tx * nz
+        bz = tx * ny - ty * nx
+        ring = []
+        for j in range(v_steps):
+            v = (2.0 * math.pi * j) / v_steps
+            cv, sv = math.cos(v), math.sin(v)
+            ring.append(bm.verts.new((
+                cx + wire_r * (cv * nx + sv * bx),
+                cy + wire_r * (cv * ny + sv * by),
+                cz + wire_r * (cv * nz + sv * bz)
+            )))
+        rings.append(ring)
+    for i in range(u_steps):
+        inext = (i + 1) % u_steps
+        for j in range(v_steps):
+            jnext = (j + 1) % v_steps
+            bm.faces.new((rings[i][j], rings[i][jnext], rings[inext][jnext], rings[inext][j]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(mesh)
+    bm.free()
+    for p in mesh.polygons:
+        p.use_smooth = True
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    return obj
+
+
+def set_bsdf(bsdf, names, val):
+    for n in names:
+        if n in bsdf.inputs:
+            bsdf.inputs[n].default_value = val
+            return
+
+
+def build_custom_lava_lamp():
+    clear_scene()
+    scene = bpy.context.scene
+    scene.render.fps = PARAMS["fps"]
+    scene.frame_start = 1
+    scene.frame_end = len(BAKED_FRAMES)
+
+    # Настройка цветопередачи Standard (без выбеливания AgX!)
+    try:
+        scene.view_settings.view_transform = 'Standard'
+        scene.view_settings.look = 'None'
+        scene.view_settings.exposure = 0.15
+        scene.view_settings.gamma = 1.0
+    except Exception:
+        pass
+
+    hot_srgb = PARAMS["wax_color_hot_srgb"]
+    cold_srgb = PARAMS["wax_color_cold_srgb"]
+    liq_srgb = PARAMS["liquid_color_srgb"]
+    met_srgb = PARAMS["metal_color_srgb"]
+
+    hot = srgb_to_linear(hot_srgb)
+    cold = srgb_to_linear(cold_srgb)
+    liq = srgb_to_linear(liq_srgb)
+    met = srgb_to_linear(met_srgb)
+
+    ctrl = bpy.data.objects.new("LavaLamp_Master_Controller", None)
+    ctrl.empty_display_size = 0.05
+    bpy.context.collection.objects.link(ctrl)
+
+    # 1. Гладкий полированный хром с тонкими горизонтальными кольцами токарной шлифовки
+    mat_metal = bpy.data.materials.new("LavaLamp_Brushed_Metal")
+    if bpy.app.version < (5, 0, 0): mat_metal.use_nodes = True
+    mat_metal.diffuse_color = met
+    nt_m = mat_metal.node_tree
+    bsdf_m = nt_m.nodes.get("Principled BSDF")
+    tc_m = nt_m.nodes.new("ShaderNodeTexCoord")
+    wave_m = nt_m.nodes.new("ShaderNodeTexWave")
+    wave_m.wave_type = 'BANDS'
+    wave_m.bands_direction = 'Z'
+    wave_m.inputs["Scale"].default_value = 90.0
+    wave_m.inputs["Distortion"].default_value = 0.25
+    rm_m = nt_m.nodes.new("ShaderNodeMapRange")
+    rm_m.inputs["From Min"].default_value = 0.0
+    rm_m.inputs["From Max"].default_value = 1.0
+    rm_m.inputs["To Min"].default_value = max(0.16, PARAMS["metal_roughness"] - 0.04)
+    rm_m.inputs["To Max"].default_value = min(0.38, PARAMS["metal_roughness"] + 0.04)
+    bump_m = nt_m.nodes.new("ShaderNodeBump")
+    bump_m.inputs["Strength"].default_value = 0.02
+    bump_m.inputs["Distance"].default_value = 0.001
+    nt_m.links.new(tc_m.outputs["Object"], wave_m.inputs["Vector"])
+    nt_m.links.new(wave_m.outputs["Fac"], rm_m.inputs["Value"])
+    nt_m.links.new(rm_m.outputs["Result"], bsdf_m.inputs["Roughness"])
+    nt_m.links.new(wave_m.outputs["Fac"], bump_m.inputs["Height"])
+    nt_m.links.new(bump_m.outputs["Normal"], bsdf_m.inputs["Normal"])
+    set_bsdf(bsdf_m, ["Base Color"], met)
+    set_bsdf(bsdf_m, ["Metallic"], 0.90)
+    set_bsdf(bsdf_m, ["Specular IOR Level", "Specular"], 0.65)
+    set_bsdf(bsdf_m, ["Anisotropic"], 0.35)
+
+    # 2. Тёмный студийный подиум (#0e0d18 в Linear RGB) с мягким радиальным градиентом каустики
+    mat_pedestal = bpy.data.materials.new("LavaLamp_Pedestal_Caustics")
+    if bpy.app.version < (5, 0, 0): mat_pedestal.use_nodes = True
+    ped_base = srgb_to_linear((0.055, 0.051, 0.094, 1.0))
+    mat_pedestal.diffuse_color = ped_base
+    nt_p = mat_pedestal.node_tree
+    bsdf_p = nt_p.nodes.get("Principled BSDF")
+    tc_p = nt_p.nodes.new("ShaderNodeTexCoord")
+    sep_p = nt_p.nodes.new("ShaderNodeSeparateXYZ")
+    comb_p = nt_p.nodes.new("ShaderNodeCombineXYZ")
+    nt_p.links.new(tc_p.outputs["Object"], sep_p.inputs["Vector"])
+    nt_p.links.new(sep_p.outputs["X"], comb_p.inputs["X"])
+    nt_p.links.new(sep_p.outputs["Y"], comb_p.inputs["Y"])
+    vlen_p = nt_p.nodes.new("ShaderNodeVectorMath")
+    vlen_p.operation = 'LENGTH'
+    nt_p.links.new(comb_p.outputs["Vector"], vlen_p.inputs[0])
+    mr_p = nt_p.nodes.new("ShaderNodeMapRange")
+    mr_p.inputs["From Min"].default_value = 0.80
+    mr_p.inputs["From Max"].default_value = 2.25
+    nt_p.links.new(vlen_p.outputs["Value"], mr_p.inputs["Value"])
+    ramp_p = nt_p.nodes.new("ShaderNodeValToRGB")
+    ramp_p.color_ramp.interpolation = 'B_SPLINE'
+    ramp_p.color_ramp.elements[0].position = 0.0
+    ramp_p.color_ramp.elements[0].color = srgb_to_linear((
+        min(1.0, hot_srgb[0] * 0.55 + 0.05),
+        min(1.0, hot_srgb[1] * 0.35 + 0.04),
+        min(1.0, hot_srgb[2] * 0.25 + 0.08),
+        1.0
+    ))
+    ep1 = ramp_p.color_ramp.elements.new(0.36)
+    ep1.color = srgb_to_linear((
+        min(1.0, cold_srgb[0] * 0.38 + 0.05),
+        min(1.0, cold_srgb[1] * 0.16 + 0.04),
+        min(1.0, cold_srgb[2] * 0.28 + 0.12),
+        1.0
+    ))
+    ep2 = ramp_p.color_ramp.elements.new(0.72)
+    ep2.color = srgb_to_linear((0.065, 0.050, 0.115, 1.0))
+    ramp_p.color_ramp.elements[3].position = 1.0
+    ramp_p.color_ramp.elements[3].color = ped_base
+    nt_p.links.new(mr_p.outputs["Result"], ramp_p.inputs["Fac"])
+    nt_p.links.new(ramp_p.outputs["Color"], bsdf_p.inputs["Base Color"])
+    if "Emission Color" in bsdf_p.inputs:
+        nt_p.links.new(ramp_p.outputs["Color"], bsdf_p.inputs["Emission Color"])
+    elif "Emission" in bsdf_p.inputs:
+        nt_p.links.new(ramp_p.outputs["Color"], bsdf_p.inputs["Emission"])
+    set_bsdf(bsdf_p, ["Metallic"], 0.28)
+    set_bsdf(bsdf_p, ["Roughness"], 0.42)
+    set_bsdf(bsdf_p, ["Specular IOR Level", "Specular"], 0.35)
+    set_bsdf(bsdf_p, ["Emission Strength"], 0.35)
+
+    # 3. Кристально прозрачная стеклянная колба (Alpha = 0.025 в центре, глянцевый кант Френеля по краям)
+    mat_glass = bpy.data.materials.new("LavaLamp_Glass")
+    if bpy.app.version < (5, 0, 0): mat_glass.use_nodes = True
+    if hasattr(mat_glass, "blend_method"):
+        mat_glass.blend_method = 'BLEND'
+    if hasattr(mat_glass, "surface_render_method"):
+        try:
+            mat_glass.surface_render_method = 'BLENDED'
+        except Exception:
+            pass
+    if hasattr(mat_glass, "show_transparent_back"):
+        mat_glass.show_transparent_back = False
+    mat_glass.diffuse_color = (*srgb_to_linear((0.28, 0.14, 0.48)), 0.08)
+    nt_g = mat_glass.node_tree
+    bsdf_g = nt_g.nodes.get("Principled BSDF")
+    lw_g = nt_g.nodes.new("ShaderNodeLayerWeight")
+    lw_g.inputs["Blend"].default_value = 0.22
+    am_g = nt_g.nodes.new("ShaderNodeMapRange")
+    am_g.inputs["To Min"].default_value = 0.025
+    am_g.inputs["To Max"].default_value = 0.30
+    nt_g.links.new(lw_g.outputs["Fresnel"], am_g.inputs["Value"])
+    nt_g.links.new(am_g.outputs["Result"], bsdf_g.inputs["Alpha"])
+    geom_g = nt_g.nodes.new("ShaderNodeNewGeometry")
+    sep_g = nt_g.nodes.new("ShaderNodeSeparateXYZ")
+    mr_g = nt_g.nodes.new("ShaderNodeMapRange")
+    mr_g.inputs["From Min"].default_value = 0.08
+    mr_g.inputs["From Max"].default_value = 2.85
+    ramp_g = nt_g.nodes.new("ShaderNodeValToRGB")
+    ramp_g.color_ramp.elements[0].position = 0.0
+    ramp_g.color_ramp.elements[0].color = srgb_to_linear((
+        min(1.0, hot_srgb[0] * 0.45 + liq_srgb[0] * 0.55 + 0.18),
+        min(1.0, hot_srgb[1] * 0.45 + liq_srgb[1] * 0.55 + 0.12),
+        min(1.0, hot_srgb[2] * 0.45 + liq_srgb[2] * 0.55 + 0.25),
+        1.0
+    ))
+    ramp_g.color_ramp.elements[1].position = 0.65
+    ramp_g.color_ramp.elements[1].color = srgb_to_linear((
+        min(1.0, liq_srgb[0] * 0.7 + 0.28),
+        min(1.0, liq_srgb[1] * 0.7 + 0.22),
+        min(1.0, liq_srgb[2] * 0.7 + 0.42),
+        1.0
+    ))
+    nt_g.links.new(geom_g.outputs["Position"], sep_g.inputs["Vector"])
+    nt_g.links.new(sep_g.outputs["Z"], mr_g.inputs["Value"])
+    nt_g.links.new(mr_g.outputs["Result"], ramp_g.inputs["Fac"])
+    nt_g.links.new(ramp_g.outputs["Color"], bsdf_g.inputs["Base Color"])
+    if "Emission Color" in bsdf_g.inputs:
+        nt_g.links.new(ramp_g.outputs["Color"], bsdf_g.inputs["Emission Color"])
+    elif "Emission" in bsdf_g.inputs:
+        nt_g.links.new(ramp_g.outputs["Color"], bsdf_g.inputs["Emission"])
+    set_bsdf(bsdf_g, ["Metallic"], 0.0)
+    set_bsdf(bsdf_g, ["Roughness"], 0.05)
+    set_bsdf(bsdf_g, ["IOR"], PARAMS["glass_ior"])
+    set_bsdf(bsdf_g, ["Transmission Weight", "Transmission"], 0.0)
+    set_bsdf(bsdf_g, ["Specular IOR Level", "Specular"], 0.85)
+    set_bsdf(bsdf_g, ["Coat Weight", "Clearcoat"], 1.0)
+    set_bsdf(bsdf_g, ["Coat Roughness", "Clearcoat Roughness"], 0.02)
+    set_bsdf(bsdf_g, ["Emission Strength"], 0.12)
+
+    # 4. Насыщенный расплавленный воск в Linear RGB (1:1 цвета сайта!)
+    mat_wax = bpy.data.materials.new("LavaLamp_Wax_SSS")
+    if bpy.app.version < (5, 0, 0): mat_wax.use_nodes = True
+    mat_wax.diffuse_color = hot
+    nt = mat_wax.node_tree
+    bsdf_w = nt.nodes.get("Principled BSDF")
+    geom = nt.nodes.new("ShaderNodeNewGeometry")
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    mr = nt.nodes.new("ShaderNodeMapRange")
+    mr.inputs["From Min"].default_value = 0.48
+    mr.inputs["From Max"].default_value = 2.48
+    noise_w = nt.nodes.new("ShaderNodeTexNoise")
+    noise_w.inputs["Scale"].default_value = 2.8
+    noise_w.inputs["Detail"].default_value = 3.0
+    noise_w.inputs["Roughness"].default_value = 0.45
+    nt.links.new(geom.outputs["Position"], noise_w.inputs["Vector"])
+    lw_w = nt.nodes.new("ShaderNodeLayerWeight")
+    lw_w.inputs["Blend"].default_value = 0.35
+    m_add = nt.nodes.new("ShaderNodeMath")
+    m_add.operation = 'MULTIPLY_ADD'
+    m_add.inputs[1].default_value = 0.10
+    nt.links.new(noise_w.outputs["Fac"], m_add.inputs[0])
+    nt.links.new(mr.outputs["Result"], m_add.inputs[2])
+    m_core = nt.nodes.new("ShaderNodeMath")
+    m_core.operation = 'SUBTRACT'
+    m_core.use_clamp = True
+    m_fac = nt.nodes.new("ShaderNodeMath")
+    m_fac.operation = 'MULTIPLY'
+    m_fac.inputs[1].default_value = 0.20
+    nt.links.new(lw_w.outputs["Facing"], m_fac.inputs[0])
+    nt.links.new(m_add.outputs["Value"], m_core.inputs[0])
+    nt.links.new(m_fac.outputs["Value"], m_core.inputs[1])
+    ramp = nt.nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.interpolation = 'B_SPLINE'
+    ramp.color_ramp.elements[0].position = 0.0
+    ramp.color_ramp.elements[0].color = srgb_to_linear((
+        min(1.0, hot_srgb[0] * 0.75 + 0.25),
+        min(1.0, hot_srgb[1] * 0.75 + 0.18),
+        min(1.0, hot_srgb[2] * 0.60 + 0.06),
+        1.0
+    ))
+    ew_mid = ramp.color_ramp.elements.new(0.32)
+    ew_mid.color = hot
+    ew_upper = ramp.color_ramp.elements.new(0.68)
+    ew_upper.color = cold
+    ramp.color_ramp.elements[3].position = 1.0
+    ramp.color_ramp.elements[3].color = srgb_to_linear((
+        cold_srgb[0] * 0.78,
+        cold_srgb[1] * 0.65,
+        cold_srgb[2] * 0.78,
+        1.0
+    ))
+    nt.links.new(geom.outputs["Position"], sep.inputs["Vector"])
+    nt.links.new(sep.outputs["Z"], mr.inputs["Value"])
+    nt.links.new(m_core.outputs["Value"], ramp.inputs["Fac"])
+    nt.links.new(ramp.outputs["Color"], bsdf_w.inputs["Base Color"])
+    if "Subsurface Color" in bsdf_w.inputs:
+        nt.links.new(ramp.outputs["Color"], bsdf_w.inputs["Subsurface Color"])
+    if "Emission Color" in bsdf_w.inputs:
+        nt.links.new(ramp.outputs["Color"], bsdf_w.inputs["Emission Color"])
+    elif "Emission" in bsdf_w.inputs:
+        nt.links.new(ramp.outputs["Color"], bsdf_w.inputs["Emission"])
+    set_bsdf(bsdf_w, ["Metallic"], 0.0)
+    set_bsdf(bsdf_w, ["Roughness"], 0.28)
+    set_bsdf(bsdf_w, ["Specular IOR Level", "Specular"], 0.24)
+    set_bsdf(bsdf_w, ["Coat Weight", "Clearcoat"], 0.0)
+    set_bsdf(bsdf_w, ["Subsurface Weight", "Subsurface"], PARAMS["wax_subsurface"])
+    set_bsdf(bsdf_w, ["Subsurface Scale"], 0.16)
+    set_bsdf(bsdf_w, ["Emission Strength"], PARAMS["wax_emission_strength"])
+
+    # 5. Нагревательная спираль Беттса на дне колбы (без пересвета в белое пятно)
+    mat_coil = bpy.data.materials.new("LavaLamp_Heating_Coil")
+    if bpy.app.version < (5, 0, 0): mat_coil.use_nodes = True
+    mat_coil.diffuse_color = hot
+    bsdf_c = mat_coil.node_tree.nodes.get("Principled BSDF")
+    set_bsdf(bsdf_c, ["Base Color"], hot)
+    set_bsdf(bsdf_c, ["Metallic"], 0.88)
+    set_bsdf(bsdf_c, ["Roughness"], 0.22)
+    set_bsdf(bsdf_c, ["Emission Color", "Emission"], hot)
+    set_bsdf(bsdf_c, ["Emission Strength"], 1.35)
+
+    base_profile = ${JSON.stringify(vesselHardwareGroup.userData.basePts || [[0.0, -1.45], [0.88, -1.45], [0.85, -1.34], [0.50, -0.56], [0.62, 0.08], [0.0, 0.08]])}
+    base_obj = create_revolved_mesh("LavaLamp_Base", base_profile)
+    base_obj.parent = ctrl
+    base_obj.data.materials.append(mat_metal)
+
+    glass_obj = create_revolved_mesh("LavaLamp_Glass_Vessel", GLASS_PROFILE)
+    glass_obj.parent = ctrl
+    glass_obj.data.materials.append(mat_glass)
+
+    cap_profile = ${JSON.stringify(vesselHardwareGroup.userData.capPts || [[0.0, 3.10], [0.46, 3.10], [0.48, 3.12], [0.40, 3.55], [0.31, 3.92], [0.0, 3.92]])}
+    cap_obj = create_revolved_mesh("LavaLamp_Top_Cap", cap_profile)
+    cap_obj.parent = ctrl
+    cap_obj.data.materials.append(mat_metal)
+
+    pedestal_profile = [(0.0, -1.63), (3.90, -1.63), (3.60, -1.45), (0.0, -1.45)]
+    pedestal_obj = create_revolved_mesh("LavaLamp_Studio_Pedestal", pedestal_profile)
+    pedestal_obj.parent = ctrl
+    pedestal_obj.data.materials.append(mat_pedestal)
+
+    coil_obj = create_helical_coil("LavaLamp_Heating_Coil", major_r=0.42, minor_r=0.035, turns=22, wire_r=0.011, z_center=0.125)
+    coil_obj.parent = ctrl
+    coil_obj.data.materials.append(mat_coil)
+
+    mball = bpy.data.metaballs.new("LavaLamp_Wax_MBall")
+    mball.resolution = PARAMS["metaball_resolution_view"]
+    mball.render_resolution = PARAMS["metaball_resolution_render"]
+    mball.threshold = PARAMS["metaball_threshold"]
+    mball.materials.append(mat_wax)
+    mball_obj = bpy.data.objects.new("LavaLamp_Wax_Fluid", mball)
+    mball_obj.parent = ctrl
+    bpy.context.collection.objects.link(mball_obj)
+
+    els = [mball.elements.new(type='ELLIPSOID') for _ in range(len(BAKED_FRAMES[0]))]
+    for el in els:
+        el.stiffness = 2.0
+
+    # Сбалансированное 5-точечное освещение (без выбеливания донышка и капель!)
+    ldata = bpy.data.lights.new("LavaLamp_Bottom_Bulb", type='POINT')
+    ldata.energy = 16.0
+    ldata.color = hot[:3]
+    ldata.shadow_soft_size = 0.25
+    lobj = bpy.data.objects.new("LavaLamp_Bottom_Bulb", ldata)
+    lobj.location = (0, 0, 0.22)
+    lobj.parent = ctrl
+    bpy.context.collection.objects.link(lobj)
+
+    mdata = bpy.data.lights.new("LavaLamp_Mid_Core_Light", type='POINT')
+    mdata.energy = 12.0
+    mdata.color = cold[:3]
+    mdata.shadow_soft_size = 0.35
+    mobj = bpy.data.objects.new("LavaLamp_Mid_Core_Light", mdata)
+    mobj.location = (0, 0, 1.50)
+    mobj.parent = ctrl
+    bpy.context.collection.objects.link(mobj)
+
+    hdata = bpy.data.lights.new("LavaLamp_Pedestal_Halo_Light", type='POINT')
+    hdata.energy = 8.0
+    hdata.color = hot[:3]
+    hdata.shadow_soft_size = 0.45
+    hobj = bpy.data.objects.new("LavaLamp_Pedestal_Halo_Light", hdata)
+    hobj.location = (0, 0, -1.15)
+    hobj.parent = ctrl
+    bpy.context.collection.objects.link(hobj)
+
+    r1data = bpy.data.lights.new("Studio_Rim_Light_Cool", type='AREA')
+    r1data.energy = 42.0
+    r1data.color = srgb_to_linear((0.78, 0.82, 0.99))
+    r1data.size = 3.2
+    r1obj = bpy.data.objects.new("Studio_Rim_Light_Cool", r1data)
+    r1obj.location = (-3.6, -2.8, 2.8)
+    r1obj.rotation_euler = (math.radians(64), 0.0, math.radians(-38))
+    bpy.context.collection.objects.link(r1obj)
+
+    r2data = bpy.data.lights.new("Studio_Rim_Light_Warm", type='AREA')
+    r2data.energy = 28.0
+    r2data.color = srgb_to_linear((0.99, 0.80, 0.83))
+    r2data.size = 2.8
+    r2obj = bpy.data.objects.new("Studio_Rim_Light_Warm", r2data)
+    r2obj.location = (3.6, -2.4, 2.1)
+    r2obj.rotation_euler = (math.radians(70), 0.0, math.radians(42))
+    bpy.context.collection.objects.link(r2obj)
+
+    for f_idx, frame in enumerate(BAKED_FRAMES):
+        f_num = f_idx + 1
+        avg_z = 0.0
+        for b_idx, vals in enumerate(frame):
+            x, y_up, z, r, sx, sy, sz, temp = vals[:8]
+            avg_z += y_up
+            el = els[b_idx]
+            el.co = (x, z, y_up)
+            el.radius = r * 1.68
+            el.size_x = sx
+            el.size_y = sz
+            el.size_z = sy
+            el.keyframe_insert(data_path="co", frame=f_num)
+            el.keyframe_insert(data_path="size_x", frame=f_num)
+            el.keyframe_insert(data_path="size_y", frame=f_num)
+            el.keyframe_insert(data_path="size_z", frame=f_num)
+        avg_z /= max(1, len(frame))
+        mobj.location = (0.0, 0.0, avg_z)
+        mobj.keyframe_insert(data_path="location", frame=f_num)
+
+    # Студийная камера с точным углом обзора 42° (как на сайте!) и аккуратным значком
+    cam_target = bpy.data.objects.new("LavaLamp_Camera_Target", None)
+    cam_target.empty_display_size = 0.05
+    cam_target.location = (0.0, 0.0, 1.18)
+    cam_target.parent = ctrl
+    bpy.context.collection.objects.link(cam_target)
+
+    cdata = bpy.data.cameras.new("LavaLamp_Camera")
+    cdata.sensor_fit = 'VERTICAL'
+    cdata.sensor_height = 24.0
+    cdata.lens = 31.3  # Точный вертикальный FOV 42 градуса, как в Three.js на сайте
+    cdata.display_size = 0.12
+    cobj = bpy.data.objects.new("LavaLamp_Camera", cdata)
+    cobj.location = (2.15, -6.35, 2.05)
+    bpy.context.collection.objects.link(cobj)
+    track = cobj.constraints.new(type='TRACK_TO')
+    track.target = cam_target
+    track.track_axis = 'TRACK_NEGATIVE_Z'
+    track.up_axis = 'UP_Y'
+    scene.camera = cobj
+
+    # Окружение мира: глубокий ночной фон #07060d для камеры + студийный градиент для бликов на хроме и стекле
+    if scene.world is None:
+        scene.world = bpy.data.worlds.new("LavaLamp_Studio_World")
+    if bpy.app.version < (5, 0, 0): scene.world.use_nodes = True
+    wnt = scene.world.node_tree
+    wnt.nodes.clear()
+    w_out = wnt.nodes.new("ShaderNodeOutputWorld")
+    w_mix = wnt.nodes.new("ShaderNodeMixShader")
+    w_lp = wnt.nodes.new("ShaderNodeLightPath")
+    w_bg_cam = wnt.nodes.new("ShaderNodeBackground")
+    w_bg_cam.inputs["Color"].default_value = srgb_to_linear((0.027, 0.024, 0.051, 1.0))  # #07060d
+    w_bg_cam.inputs["Strength"].default_value = 1.0
+    w_bg_ref = wnt.nodes.new("ShaderNodeBackground")
+    w_bg_ref.inputs["Strength"].default_value = 1.35
+    tc_w = wnt.nodes.new("ShaderNodeTexCoord")
+    sep_w = wnt.nodes.new("ShaderNodeSeparateXYZ")
+    ramp_w = wnt.nodes.new("ShaderNodeValToRGB")
+    ramp_w.color_ramp.elements[0].position = 0.0
+    ramp_w.color_ramp.elements[0].color = srgb_to_linear((0.18, 0.06, 0.09, 1.0))
+    wm = ramp_w.color_ramp.elements.new(0.48)
+    wm.color = srgb_to_linear((0.059, 0.090, 0.165, 1.0))
+    ramp_w.color_ramp.elements[2].position = 1.0
+    ramp_w.color_ramp.elements[2].color = srgb_to_linear((0.118, 0.106, 0.294, 1.0))
+    wnt.links.new(tc_w.outputs["Generated"], sep_w.inputs["Vector"])
+    wnt.links.new(sep_w.outputs["Z"], ramp_w.inputs["Fac"])
+    wnt.links.new(ramp_w.outputs["Color"], w_bg_ref.inputs["Color"])
+    wnt.links.new(w_lp.outputs["Is Camera Ray"], w_mix.inputs["Fac"])
+    wnt.links.new(w_bg_ref.outputs["Background"], w_mix.inputs[1])
+    wnt.links.new(w_bg_cam.outputs["Background"], w_mix.inputs[2])
+    wnt.links.new(w_mix.outputs["Shader"], w_out.inputs["Surface"])
+
+    # Включение режима RENDERED, отключение мешающих рамок/сеток/осей и фокусировка вьюпорта на лампе
+    for scr in bpy.data.screens:
+        for area in scr.areas:
+            if area.type == 'VIEW_3D':
+                for sp in area.spaces:
+                    if sp.type == 'VIEW_3D':
+                        if hasattr(sp, "shading"):
+                            try:
+                                sp.shading.type = 'RENDERED'
+                                sp.shading.use_scene_lights = True
+                                sp.shading.use_scene_world = True
+                                sp.shading.use_scene_lights_render = True
+                                sp.shading.use_scene_world_render = True
+                            except Exception:
+                                pass
+                        if hasattr(sp, "overlay"):
+                            try:
+                                sp.overlay.show_relationship_lines = False
+                                sp.overlay.show_extras = False
+                                sp.overlay.show_floor = False
+                                sp.overlay.show_axis_x = False
+                                sp.overlay.show_axis_y = False
+                                sp.overlay.show_cursor = False
+                            except Exception:
+                                pass
+                        if hasattr(sp, "region_3d") and sp.region_3d is not None:
+                            try:
+                                sp.region_3d.view_perspective = 'PERSP'
+                                sp.region_3d.view_location = (0.0, 0.0, 1.18)
+                                sp.region_3d.view_distance = 6.8
+                                sp.region_3d.view_rotation = (0.735, 0.675, 0.045, 0.042)
+                            except Exception:
+                                pass
+
+    try:
+        out_dir = os.path.dirname(os.path.abspath(__file__)) if ("__file__" in globals() and os.path.isfile(__file__)) else os.path.expanduser("~/Downloads")
+        if not os.path.isdir(out_dir) or not os.access(out_dir, os.W_OK):
+            out_dir = os.path.expanduser("~/Downloads")
+        blend_file = os.path.join(out_dir, "lava_lamp_custom_animated.blend")
+        bpy.ops.wm.save_as_mainfile(filepath=blend_file, compress=False)
+        print("Saved:", blend_file)
+    except Exception as e:
+        print("Scene built in memory:", e)
+
+
+if __name__ == "__main__":
+    build_custom_lava_lamp()
+`;
+    }
+
+    function downloadTextFile(filename, text, mime = "text/plain;charset=utf-8") {
+      const blob = new Blob([text], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }
+
+    function handleExportBlenderPy() {
+      showToast("⏳ Запекание кадров физики и генерация скрипта Blender...");
+      setTimeout(() => {
+        const code = generateCustomBlenderPythonScript(state.exportFrames);
+        downloadTextFile("lava_lamp_custom_scene.py", code, "text/x-python;charset=utf-8");
+        showToast("✅ Файл lava_lamp_custom_scene.py скачан! Откройте его в Blender -> Run Script.");
+      }, 40);
+    }
+
+    function eulerXZToQuat(rx, rz) {
+      const cx = Math.cos(rx * 0.5), sx = Math.sin(rx * 0.5);
+      const cz = Math.cos(rz * 0.5), sz = Math.sin(rz * 0.5);
+      return [
+        Number((sx * cz).toFixed(5)),
+        Number((-sx * sz).toFixed(5)),
+        Number((cx * sz).toFixed(5)),
+        Number((cx * cz).toFixed(5))
+      ];
+    }
+
+    function handleExportAnimatedGltf() {
+      showToast("⏳ Запекание полной 3D-модели лампы и анимации в .gltf...");
+      setTimeout(() => {
+        const numFrames = state.exportFrames;
+        const bakedFrames = bakeCurrentSimulationFrames(numFrames);
+
+        const lat = 20, lon = 30;
+        const sphVerts = [];
+        const sphNorms = [];
+        const sphIdx = [];
+        for (let i = 0; i <= lat; i++) {
+          const th = (Math.PI * i) / lat;
+          const st = Math.sin(th), ct = Math.cos(th);
+          for (let j = 0; j <= lon; j++) {
+            const ph = (2 * Math.PI * j) / lon;
+            const nx = st * Math.cos(ph), ny = ct, nz = st * Math.sin(ph);
+            sphVerts.push(nx, ny, nz);
+            sphNorms.push(nx, ny, nz);
+          }
+        }
+        for (let i = 0; i < lat; i++) {
+          for (let j = 0; j < lon; j++) {
+            const a = i * (lon + 1) + j;
+            const b = a + lon + 1;
+            sphIdx.push(a, b, a + 1, b, b + 1, a + 1);
+          }
+        }
+
+        const numBlobs = bakedFrames[0].length;
+        const floatChunks = [];
+        const bufferViews = [];
+        const accessors = [];
+        const meshes = [];
+        let byteOffset = 0;
+
+        function pushFloat32Array(arr, target, type, count) {
+          const stride = type === "SCALAR" ? 1 : (type === "VEC3" ? 3 : 4);
+          const minArr = new Array(stride).fill(Infinity);
+          const maxArr = new Array(stride).fill(-Infinity);
+          for (let i = 0; i < count * stride; i += stride) {
+            for (let c = 0; c < stride; c++) {
+              const v = arr[i + c];
+              if (v < minArr[c]) minArr[c] = v;
+              if (v > maxArr[c]) maxArr[c] = v;
+            }
+          }
+
+          const f32 = new Float32Array(arr);
+          const u8 = new Uint8Array(f32.buffer);
+          floatChunks.push(u8);
+          const bvIdx = bufferViews.length;
+          const bv = { buffer: 0, byteOffset: byteOffset, byteLength: u8.byteLength };
+          if (target) bv.target = target;
+          bufferViews.push(bv);
+          byteOffset += u8.byteLength;
+
+          const accIdx = accessors.length;
+          accessors.push({
+            bufferView: bvIdx,
+            componentType: 5126,
+            count: count,
+            type: type,
+            min: minArr.map((v) => Number(v.toFixed(5))),
+            max: maxArr.map((v) => Number(v.toFixed(5)))
+          });
+          return accIdx;
+        }
+
+        function pushUint16Indices(idxList) {
+          let minI = Infinity, maxI = -Infinity;
+          for (let i = 0; i < idxList.length; i++) {
+            if (idxList[i] < minI) minI = idxList[i];
+            if (idxList[i] > maxI) maxI = idxList[i];
+          }
+          const idx16 = new Uint16Array(idxList);
+          const padLen = idx16.byteLength % 4 === 0 ? idx16.byteLength : idx16.byteLength + (4 - (idx16.byteLength % 4));
+          const idxU8 = new Uint8Array(padLen);
+          idxU8.set(new Uint8Array(idx16.buffer));
+          floatChunks.push(idxU8);
+          const bvIdx = bufferViews.length;
+          bufferViews.push({
+            buffer: 0,
+            byteOffset: byteOffset,
+            byteLength: idx16.byteLength,
+            target: 34963
+          });
+          byteOffset += padLen;
+          const accIdx = accessors.length;
+          accessors.push({
+            bufferView: bvIdx,
+            componentType: 5123,
+            count: idxList.length,
+            type: "SCALAR",
+            min: [minI],
+            max: [maxI]
+          });
+          return accIdx;
+        }
+
+        function pushRawMesh(name, verts, norms, idxs, matIdx) {
+          const vCount = verts.length / 3;
+          const accP = pushFloat32Array(verts, 34962, "VEC3", vCount);
+          const accN = pushFloat32Array(norms, 34962, "VEC3", vCount);
+          const accI = pushUint16Indices(idxs);
+          const mIdx = meshes.length;
+          meshes.push({
+            name: name,
+            primitives: [{
+              attributes: { POSITION: accP, NORMAL: accN },
+              indices: accI,
+              material: matIdx
+            }]
+          });
+          return mIdx;
+        }
+
+        function pushThreeGeometryMesh(geom, name, matIdx) {
+          const posAttr = geom.attributes.position;
+          const normAttr = geom.attributes.normal;
+          const vCount = posAttr.count;
+          const verts = Array.from(posAttr.array.subarray(0, vCount * 3));
+          const norms = Array.from(normAttr.array.subarray(0, vCount * 3));
+          let idxs;
+          if (geom.index) {
+            idxs = Array.from(geom.index.array);
+          } else {
+            idxs = [];
+            for (let k = 0; k < vCount; k++) idxs.push(k);
+          }
+          return pushRawMesh(name, verts, norms, idxs, matIdx);
+        }
+
+        // Меш 0: Сфера капли воска (материал 0 — LavaLamp_Molten_Wax)
+        const meshWaxIdx = pushRawMesh("Wax_Droplet_Mesh", sphVerts, sphNorms, sphIdx, 0);
+
+        // Меш 1: Нижнее металлическое основание лампы (материал 1 — LavaLamp_Brushed_Metal)
+        const meshBaseIdx = pushThreeGeometryMesh(vesselHardwareGroup.userData.baseMesh.geometry, "LavaLamp_Metal_Base_Mesh", 1);
+
+        // Меш 2: Прозрачная стеклянная колба (материал 2 — LavaLamp_Clear_Glass)
+        const meshGlassIdx = pushThreeGeometryMesh(vesselHardwareGroup.userData.glassMesh.geometry, "LavaLamp_Glass_Vessel_Mesh", 2);
+
+        // Меш 3: Верхний металлический колпачок (материал 1 — LavaLamp_Brushed_Metal)
+        const meshCapIdx = pushThreeGeometryMesh(vesselHardwareGroup.userData.capMesh.geometry, "LavaLamp_Metal_TopCap_Mesh", 1);
+
+        // Меш 4: Студийный подиум-подставка (материал 3 — LavaLamp_Studio_Pedestal_Mat)
+        const meshPedestalIdx = pushThreeGeometryMesh(pedestalMesh.geometry, "LavaLamp_Studio_Pedestal_Mesh", 3);
+
+        // Меш 5: Нагревательная спираль Беттса на дне колбы (материал 4 — LavaLamp_Heating_Coil_Mat)
+        const meshCoilIdx = pushThreeGeometryMesh(vesselHardwareGroup.userData.coilMesh.geometry, "LavaLamp_Heating_Coil_Mesh", 4);
+
+        const times = [];
+        for (let f = 0; f < numFrames; f++) times.push(Number((f / 24.0).toFixed(5)));
+        const accTime = pushFloat32Array(times, null, "SCALAR", numFrames);
+
+        // Полная иерархия сцены: Корпус + Стеклянная колба + Крышка + Подставка + Спираль + Анимированные капли воска
+        const nodes = [
+          { name: "LavaLamp_Full_Assembly", children: [1, 2, 3, 4, 5] },
+          { name: "LavaLamp_Metal_Base", mesh: meshBaseIdx },
+          { name: "LavaLamp_Glass_Vessel", mesh: meshGlassIdx },
+          { name: "LavaLamp_Metal_TopCap", mesh: meshCapIdx },
+          { name: "LavaLamp_Studio_Pedestal", mesh: meshPedestalIdx, translation: [0.0, -1.54, 0.0] },
+          { name: "LavaLamp_Heating_Coil", mesh: meshCoilIdx }
+        ];
+        const samplers = [];
+        const channels = [];
+
+        for (let b = 0; b < numBlobs; b++) {
+          const nodeIdx = nodes.length;
+          nodes[0].children.push(nodeIdx);
+          const b0 = bakedFrames[0][b];
+          const q0 = eulerXZToQuat(b0[8] || 0, b0[9] || 0);
+          nodes.push({
+            name: `Wax_Blob_${b}`,
+            mesh: meshWaxIdx,
+            translation: [b0[0], b0[1], b0[2]],
+            rotation: q0,
+            scale: [Number((b0[3] * b0[4]).toFixed(4)), Number((b0[3] * b0[5]).toFixed(4)), Number((b0[3] * b0[6]).toFixed(4))]
+          });
+
+          const trArr = [];
+          const rotArr = [];
+          const scArr = [];
+          for (let f = 0; f < numFrames; f++) {
+            const bf = bakedFrames[f][b];
+            trArr.push(bf[0], bf[1], bf[2]);
+            const qf = eulerXZToQuat(bf[8] || 0, bf[9] || 0);
+            rotArr.push(qf[0], qf[1], qf[2], qf[3]);
+            scArr.push(bf[3] * bf[4], bf[3] * bf[5], bf[3] * bf[6]);
+          }
+          const accTr = pushFloat32Array(trArr, null, "VEC3", numFrames);
+          const accRot = pushFloat32Array(rotArr, null, "VEC4", numFrames);
+          const accSc = pushFloat32Array(scArr, null, "VEC3", numFrames);
+
+          const sTr = samplers.length;
+          samplers.push({ input: accTime, interpolation: "LINEAR", output: accTr });
+          channels.push({ sampler: sTr, target: { node: nodeIdx, path: "translation" } });
+
+          const sRot = samplers.length;
+          samplers.push({ input: accTime, interpolation: "LINEAR", output: accRot });
+          channels.push({ sampler: sRot, target: { node: nodeIdx, path: "rotation" } });
+
+          const sSc = samplers.length;
+          samplers.push({ input: accTime, interpolation: "LINEAR", output: accSc });
+          channels.push({ sampler: sSc, target: { node: nodeIdx, path: "scale" } });
+        }
+
+        const totalU8 = new Uint8Array(byteOffset);
+        let pos = 0;
+        for (const ch of floatChunks) {
+          totalU8.set(ch, pos);
+          pos += ch.byteLength;
+        }
+        const chunkStrings = [];
+        const CHUNK_SZ = 8192;
+        for (let i = 0; i < totalU8.byteLength; i += CHUNK_SZ) {
+          chunkStrings.push(String.fromCharCode.apply(null, totalU8.subarray(i, i + CHUNK_SZ)));
+        }
+        const b64 = btoa(chunkStrings.join(""));
+
+        const hotColor = hexToRgb01(state.waxColorHot);
+        const mf = METAL_FINISHES[state.metalFinish];
+        const metalColor = hexToRgb01(mf.color);
+        const glassColorObj = new THREE.Color(state.liquidColor).lerp(new THREE.Color(0xffffff), 0.68);
+        const glassBaseFactor = [
+          Number(glassColorObj.r.toFixed(4)),
+          Number(glassColorObj.g.toFixed(4)),
+          Number(glassColorObj.b.toFixed(4)),
+          Number(state.glassOpacity.toFixed(3))
+        ];
+
+        const gltfJson = {
+          asset: { version: "2.0", generator: "LavaLamp 3D Studio Complete Exporter" },
+          scene: 0,
+          scenes: [{ name: "LavaLamp_Complete_Animated_Scene", nodes: [0] }],
+          nodes: nodes,
+          materials: [
+            {
+              name: "LavaLamp_Molten_Wax",
+              doubleSided: true,
+              alphaMode: "OPAQUE",
+              pbrMetallicRoughness: { baseColorFactor: hotColor, metallicFactor: 0.0, roughnessFactor: 0.42 },
+              emissiveFactor: [Number((hotColor[0] * 0.72).toFixed(4)), Number((hotColor[1] * 0.72).toFixed(4)), Number((hotColor[2] * 0.72).toFixed(4))]
+            },
+            {
+              name: "LavaLamp_Satin_Metal",
+              doubleSided: true,
+              alphaMode: "OPAQUE",
+              pbrMetallicRoughness: { baseColorFactor: metalColor, metallicFactor: 0.35, roughnessFactor: 0.55 }
+            },
+            {
+              name: "LavaLamp_Clear_Glass",
+              doubleSided: false,
+              alphaMode: "BLEND",
+              pbrMetallicRoughness: { baseColorFactor: [glassBaseFactor[0], glassBaseFactor[1], glassBaseFactor[2], 0.14], metallicFactor: 0.0, roughnessFactor: 0.22 }
+            },
+            {
+              name: "LavaLamp_Pedestal_Matte",
+              doubleSided: true,
+              alphaMode: "OPAQUE",
+              pbrMetallicRoughness: { baseColorFactor: [0.035, 0.033, 0.055, 1.0], metallicFactor: 0.0, roughnessFactor: 0.90 }
+            },
+            {
+              name: "LavaLamp_Heating_Coil_Mat",
+              doubleSided: true,
+              alphaMode: "OPAQUE",
+              pbrMetallicRoughness: { baseColorFactor: hotColor, metallicFactor: 0.85, roughnessFactor: 0.22 },
+              emissiveFactor: [Number((hotColor[0] * 0.85).toFixed(4)), Number((hotColor[1] * 0.85).toFixed(4)), Number((hotColor[2] * 0.85).toFixed(4))]
+            }
+          ],
+          meshes: meshes,
+          animations: [{ name: "LavaLamp_Baked_Physics", samplers: samplers, channels: channels }],
+          accessors: accessors,
+          bufferViews: bufferViews,
+          buffers: [{ byteLength: byteOffset, uri: `data:application/octet-stream;base64,${b64}` }]
+        };
+
+        downloadTextFile("lava_lamp_custom_animated.gltf", JSON.stringify(gltfJson), "model/gltf+json;charset=utf-8");
+        showToast("✅ Полная 3D-модель лампы с анимацией (.gltf) скачана!");
+      }, 40);
+    }
+
+    document.getElementById("btnExportBlenderPy").addEventListener("click", handleExportBlenderPy);
+    document.getElementById("btnPanelExportPy").addEventListener("click", handleExportBlenderPy);
+    document.getElementById("btnExportGltf").addEventListener("click", handleExportAnimatedGltf);
+    document.getElementById("btnPanelExportGltf").addEventListener("click", handleExportAnimatedGltf);
+
+    const blenderModal = document.getElementById("blenderModal");
+    document.getElementById("btnOpenBlenderModal").addEventListener("click", () => {
+      document.getElementById("blenderCodePreview").value = generateCustomBlenderPythonScript(120);
+      blenderModal.classList.remove("hidden");
+    });
+    document.getElementById("btnCloseModal").addEventListener("click", () => {
+      blenderModal.classList.add("hidden");
+    });
+    document.getElementById("btnCopyBlenderCode").addEventListener("click", () => {
+      const ta = document.getElementById("blenderCodePreview");
+      ta.select();
+      try {
+        document.execCommand("copy");
+        showToast("📋 Код скрипта для Blender скопирован в буфер обмена!");
+      } catch (err) {
+        showToast("Не удалось скопировать автоматически — выделите текст вручную");
+      }
+    });
+
+    // ============================================================================
+    // 9. ГЛАВНЫЙ ЦИКЛ АНИМАЦИИ, ФИЗИКИ И ТЕЛЕМЕТРИИ (60 FPS)
+    // ============================================================================
+    let lastFrameTime = performance.now();
+    let frameCounter = 0;
+    let fpsAccum = 0;
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+
+      const rawDt = Math.min(0.05, (now - lastFrameTime) / 1000);
+      lastFrameTime = now;
+
+      frameCounter++;
+      fpsAccum += rawDt;
+
+      if (state.playing) {
+        stepPhysics(rawDt, blobs, state);
+      }
+
+      const triCount = updateMarchingCubesIsosurface();
+
+      let avgY = 0;
+      let avgTemp = 0;
+      for (let i = 0; i < blobs.length; i++) {
+        avgY += blobs[i].y;
+        avgTemp += blobs[i].temp;
+      }
+      avgY /= blobs.length;
+      avgTemp /= blobs.length;
+
+      midLavaLight.position.y = avgY;
+      causticsPlane.scale.setScalar(0.95 + 0.08 * Math.sin(simTime * 0.9));
+
+      if (fpsAccum >= 0.35) {
+        const fps = Math.min(60, Math.round(frameCounter / fpsAccum));
+        frameCounter = 0;
+        fpsAccum = 0;
+
+        const degC = (28.0 + avgTemp * 42.0 * (state.heatPower / 45.0)).toFixed(1);
+        document.getElementById("hudTemp").textContent = `${degC}°C`;
+        document.getElementById("hudTris").textContent = `${(triCount / 1000).toFixed(1)}k`;
+        document.getElementById("hudFps").textContent = fps;
+
+        const badge = document.getElementById("regimeBadge");
+        if (state.heatPower < 26) {
+          badge.textContent = "Остывание и оседание";
+          badge.className = "text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30 shrink-0";
+        } else if (state.heatPower > 65) {
+          badge.textContent = "Интенсивный перегрев";
+          badge.className = "text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 shrink-0";
+        } else {
+          badge.textContent = "Активная конвекция";
+          badge.className = "text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0";
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    window.onload = () => {
+      syncVisualMaterials();
+      updateCameraTransform();
+      requestAnimationFrame(animate);
+    };
+  </script>
+</body>
+</html>
